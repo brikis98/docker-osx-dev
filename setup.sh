@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# set -e
+set -e
 
 # Environment variable file constants
 readonly BASH_PROFILE="$HOME/.bash_profile"
