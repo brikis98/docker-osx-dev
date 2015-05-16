@@ -1,3 +1,79 @@
 #!/bin/bash
 
-echo "TODO"
+set -e
+
+# Vagrant constants
+readonly VAGRANT_FILE_NAME="Vagrantfile"
+readonly VAGRANT_FILE_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/$VAGRANT_FILE_NAME"
+
+# Console colors
+readonly COLOR_INFO='\033[0;32m[INFO]'
+readonly COLOR_WARN='\033[1;33m[WARN]'
+readonly COLOR_ERROR='\033[0;31m[ERROR]'
+readonly COLOR_INSTRUCTIONS='\033[0;37m[INSTRUCTIONS]'
+readonly COLOR_END='\033[0m'
+
+function log_info {
+  log "$1" $COLOR_INFO
+}
+
+function log_warn {
+  log "$1" $COLOR_WARN
+}
+
+function log_error {
+  log "$1" $COLOR_ERROR
+}
+
+function log_instructions {
+  log "$1" $COLOR_INSTRUCTIONS
+}
+
+function log {
+  local readonly message=$1
+  local readonly color=$2 || $COLOR_INFO
+  echo -e "${color} ${message}${COLOR_END}"
+}
+
+function init {
+  log_info "Initializing project"
+  if [[ -f "$VAGRANT_FILE_NAME" ]]; then
+    log_warn "$VAGRANT_FILE_NAME already exists, will not overwrite"
+  else
+    log_info "Creating $VAGRANT_FILE_NAME"
+    curl -L "$VAGRANT_FILE_URL" > $VAGRANT_FILE_NAME
+  fi
+}
+
+function start {
+  log_info "Starting Docker and Vagrant"
+  vagrant up
+
+  log_info "Starting file syncing"
+  vagrant gatling-rsync-auto > /dev/null 2>&1 &
+}
+
+function stop {
+  log_info "Stopping file syncing"
+  ps aux | grep gatling-rsync-auto | grep -v grep | awk '{print "kill " $2}' | sh
+
+  log_info "Stopping Docker and Vagrant"
+  vagrant suspend
+}
+
+function instructions {
+  echo "instructions"
+}
+
+function handle_command {
+  local readonly command=$1
+
+  case "$command" in
+    init) init ;;
+    start) start ;;
+    stop) stop ;;
+    *) instructions
+  esac
+}
+
+handle_command $@

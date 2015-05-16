@@ -65,6 +65,7 @@ and get a Linux console in seconds:
 ```
 > echo "I'm running in $(uname)"
 I'm running in Darwin
+
 > docker run -it --rm gliderlabs/alpine:3.1 sh
 / # echo "Now I'm running in $(uname)!"
 Now I'm running in Linux!
