@@ -11,20 +11,23 @@ container, you will run into two major problems:
    watching mechanism. The only workaround is to enable polling, which is *much*
    slower to pick up changes and eats up a lot of resources.
 
-I tried many different solutions (see [Alternatives](#Alternatives)) that didn't
+I tried many different solutions (see [Alternatives](#alternatives)) that didn't
 work until I finally stumbled across one that does: Vagrant and Rsync. Using
 this combination, build and compilation performance in mounted folders is on
-par with native OS X and normal file watching works correctly as well. However, 
+par with native OS X and normal file watching works properly too. However, 
 setting it up correctly is a painful process that involves nearly a dozen steps, 
 so to make life easier, I've packaged this process up in this docker-osx-dev 
 project. 
 
 # Status
 
-This project is largely a workaround. I hope that in the future, someone will 
-build a better alternative to vboxsf for mounting source code from OS X, and 
-makes this entire project obsolete. Until that day comes, I will continue to use
-these hacky scripts to keep myself productive.
+Alpha. I've tested it on my own computer and am able to code productively, but
+I welcome others to try it and give me feedback (or submit pull requests!).
+
+Note: this project is inherently a temporary workaround. I hope that in the 
+future, someone will build a better alternative to vboxsf for mounting source 
+code from OS X, and makes this entire project obsolete. Until that day comes, I 
+will continue to use these hacky scripts to keep myself productive.
 
 # Install
 
@@ -49,7 +52,7 @@ to do this once per project.
 # Usage
 
 Once you've setup a project with docker-osx-dev, use the following command to
-start the Docker server:
+start Vagrant, Docker, and file syncing:
 
 ```sh
 docker-osx-dev start
@@ -60,12 +63,16 @@ you can fire up the tiny [Alpine Linux image](https://registry.hub.docker.com/u/
 and get a Linux console in seconds:
 
 ```
+> echo "I'm running in $(uname)"
+I'm running in Darwin
 > docker run -it --rm gliderlabs/alpine:3.1 sh
-/ # echo "I'm now running in $(uname)!"
-I'm now running in Linux!
+/ # echo "Now I'm running in $(uname)!"
+Now I'm running in Linux!
 ```
 
-You can use the `-v` flag to mount the current source folder:
+You can use the `-v` flag to mount a source folder. For example, here is how
+you can mount the current directory on OS X so it shows up under `/src` in the
+Docker container:
 
 ```
 > ls -al
@@ -88,8 +95,10 @@ drwxr-xr-x   25 root     root          4096 May 16 21:07 ..
 
 docker-osx-dev uses [rsync](http://en.wikipedia.org/wiki/Rsync)
 to keep the files in sync between OS X and your Docker containers with virtually
-no performance penalty. Your builds should run quickly and file watchers should
-work normally!
+no performance penalty. In the example above, any build you run in the `/src` 
+folder of the Docker container should work just as quickly as if you run it in
+OS X. Also, file watchers should work normally for any system that supports hot
+reload (i.e. make a change and refresh the page).
 
 If you are using [Docker Compose](https://docs.docker.com/compose/), 
 docker-osx-dev will automatically use rsync to mount any folders marked as
@@ -128,20 +137,29 @@ Notice the use of `dockerhost` in the URL. The docker-osx-dev script
 automatically adds the proper IP to your `/etc/hosts` file so you don't have to
 mess around with Vagrant or Docker IP addresses. 
 
+Finally, to shut down Docker and Vagrant, you can run:
+
+```
+docker-osx-dev stop
+```
+
 # How it works
 
-This `setup.sh` script installs all the software you need:
+The `setup.sh` script installs all the software you need:
 
 1. [Docker](https://www.docker.com/)
 2. [Docker Compose](https://docs.docker.com/compose/)
 3. [VirtualBox](https://www.virtualbox.org/)
 4. [Vagrant](https://www.vagrantup.com/)
 5. [vagrant-gatling-rsync](https://github.com/smerrill/vagrant-gatling-rsync)
+6. The docker-osx-dev script which you can use to start/stop Docker and Vagrant
 
-It also adds the `$DOCKER_HOST` environment variable to `~/.bash_profile` or
-`~/.bashrc` file so it is available at startup and adds the IP address of the
-Vagrant box to `/etc/hosts` as `dockerhost` so you can visit 
-`http://dockerhost:12345` in your browser for easy testing.
+The `setup.sh` also:
+
+1. Adds the `$DOCKER_HOST` environment variable to `~/.bash_profile` or
+   `~/.bashrc` file so it is available at startup.
+2. Adds the IP address of the Vagrant box to `/etc/hosts` as `dockerhost` so 
+   you can visit `http://dockerhost:12345` in your browser for easy testing.
 
 Instead of using vboxsf, docker-osx-dev keeps files in sync by running the
 [vagrant-gatling-rsync](https://github.com/smerrill/vagrant-gatling-rsync) in
