@@ -20,6 +20,7 @@ readonly DOCKER_HOST_NAME="dockerhost"
 readonly COLOR_INFO='\033[0;32m[INFO]'
 readonly COLOR_WARN='\033[1;33m[WARN]'
 readonly COLOR_ERROR='\033[0;31m[ERROR]'
+readonly COLOR_INSTRUCTIONS='\033[0;37m[INSTRUCTIONS]'
 readonly COLOR_END='\033[0m'
 
 # Script constants
@@ -37,6 +38,10 @@ function log_warn {
 
 function log_error {
   log "$1" $COLOR_ERROR
+}
+
+function log_instructions {
+  log "$1" $COLOR_INSTRUCTIONS
 }
 
 function log {
@@ -124,16 +129,6 @@ function add_environment_variables {
   fi  
 }
 
-function add_docker_host {
-  local readonly host_entry="$VAGRANT_HOST $DOCKER_HOST_NAME"
-  if grep -q "$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
-    log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not add entry \"$host_entry\""
-  else
-    log_info "Adding $host_entry to $HOSTS_FILE, will need sudo password!"
-    sudo echo '$host_entry' >> $HOSTS_FILE
-  fi
-}
-
 function install_local_scripts {
   local readonly script_path="$BIN_DIR/$DOCKER_OSX_DEV_SCRIPT_NAME"
   if [[ -f "$script_path" ]]; then
@@ -145,9 +140,19 @@ function install_local_scripts {
   fi
 }
 
+function add_docker_host {
+  local readonly host_entry="$VAGRANT_HOST $DOCKER_HOST_NAME"
+  if grep -q "$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
+    log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not add entry \"$host_entry\""
+  else
+    echo
+    log_instructions "Run the following command so you can use http://$DOCKER_HOST_NAME in URLs: sudo echo '$host_entry' >> $HOSTS_FILE"
+  fi
+}
+
 check_prerequisites
 install_dependencies
 install_vagrant_plugins
 add_environment_variables
-#add_docker_host
 install_local_scripts
+add_docker_host
