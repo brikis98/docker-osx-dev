@@ -11,10 +11,13 @@ container, you will run into two major problems:
    watching mechanism. The only workaround is to enable polling, which is *much*
    slower to pick up changes and eats up a lot of resources.
 
-I found a solution that allows me to be productive with Docker on OS X by using
-Vagrant and Rsync. However, [setting it up is a painful process](http://stackoverflow.com/a/30111077/483528)
-that involves nearly a dozen steps, so to make life easier, I've packaged this 
-process up in this docker-osx-dev project. 
+I tried many different solutions (see [Alternatives](#Alternatives)) that didn't
+work until I finally stumbled across one that does: Vagrant and Rsync. Using
+this combination, build and compilation performance in mounted folders is on
+par with native OS X and normal file watching works correctly as well. However, 
+setting it up correctly is a painful process that involves nearly a dozen steps, 
+so to make life easier, I've packaged this process up in this docker-osx-dev 
+project. 
 
 # Status
 
@@ -56,20 +59,31 @@ You can now run whatever Docker containers you like. For example, here is how
 you can fire up the tiny [Alpine Linux image](https://registry.hub.docker.com/u/gliderlabs/alpine/)
 and get a Linux console in seconds:
 
-```sh
+```
 > docker run -it --rm gliderlabs/alpine:3.1 sh
-/ # echo "I'm now in a Linux container"
-I'm in a Linux container
+/ # echo "I'm now running in $(uname)!"
+I'm now running in Linux!
 ```
 
 You can use the `-v` flag to mount the current source folder:
 
-```sh
+```
+> ls -al
+total 16
+drwxr-xr-x  4 brikis98  staff  136 May 16 14:05 .
+drwxr-xr-x  7 brikis98  staff  238 May 16 14:04 ..
+-rw-r--r--  1 brikis98  staff   12 May 16 14:05 bar
+-rw-r--r--  1 brikis98  staff    4 May 16 14:05 foo
+
 > docker run -it --rm -v $(pwd):/src gliderlabs/alpine:3.1 sh
 / # cd /src
-/src # ls
+/src # ls -al
+total 12
+drwxrwxrwx    2 1000     users           80 May 16 21:06 .
+drwxr-xr-x   25 root     root          4096 May 16 21:07 ..
+-rw-rw-rw-    1 1000     users           12 May 16 21:06 bar
+-rw-rw-rw-    1 1000     users            4 May 16 21:06 foo
 
-[... A list of the files you had in that folder on OS X ...]
 ```
 
 docker-osx-dev uses [rsync](http://en.wikipedia.org/wiki/Rsync)
@@ -99,7 +113,9 @@ You could run this file as follows:
 docker-compose up
 ```
 
-This would fire up a Postgres database and the training webapp (a simple "Hello, 
+This would fire up a [Postgres 
+database](https://registry.hub.docker.com/u/library/postgres/) and the [training 
+webapp](https://registry.hub.docker.com/u/training/webapp/) (a simple "Hello, 
 World" Python app), mount the current directory into `/src` in the webapp 
 container (using rsync, so it'll be fast), and expose port 5000. You can now
 test this webapp by going to:
@@ -122,7 +138,7 @@ This `setup.sh` script installs all the software you need:
 4. [Vagrant](https://www.vagrantup.com/)
 5. [vagrant-gatling-rsync](https://github.com/smerrill/vagrant-gatling-rsync)
 
-It also adds the $DOCKER_HOST environment variable to `~/.bash_profile` or
+It also adds the `$DOCKER_HOST` environment variable to `~/.bash_profile` or
 `~/.bashrc` file so it is available at startup and adds the IP address of the
 Vagrant box to `/etc/hosts` as `dockerhost` so you can visit 
 `http://dockerhost:12345` in your browser for easy testing.
@@ -134,6 +150,47 @@ quickly copy changes from OS X to your Docker container. By default, the current
 source folder (i.e. the one with the `Vagrantfile`) is synced. If you use 
 `docker-compose`, docker-osx-dev will sync any folders marked as 
 [volumes](https://docs.docker.com/compose/yml/#volumes).
+
+# Limitations and known issues
+
+1. File syncing is currently one way only. That is, changes you make on OS X
+   will be visible very quickly in the Docker container. However, changes in the
+   Docker container will **not** be propagated back to OS X. This isn't a 
+   problem for most development scenarios, but time permitting, I'll be looking
+   into using [Unison](http://www.cis.upenn.edu/~bcpierce/unison/) to support
+   two-way sync.
+2. Too may technologies. I'd prefer to not have to use Vagrant, but it makes
+   using rsync very easy. Time permitting, I'll be looking into using rsync
+   directly with Boot2Docker.
+
+# Alternatives
+
+Below are some of the other solutions I tried to make Docker productive on OS X
+(I even created a [StackOverflow Discussion](http://stackoverflow.com/questions/30090007/whats-the-right-way-to-setup-a-development-environment-on-os-x-with-docker)
+to find out what other people were doing.) With most of them, file syncing was 
+still too slow to be usable, but they were useful to me to learn more about the
+Docker ecosystem, and perhaps they will be useful for you if docker-osx-dev 
+doesn't work out:
+
+1. [boot2docker-vagrant](https://github.com/blinkreaction/boot2docker-vagrant):
+   Docker, Vagrant, and the ability to choose between NFS, Samba, rsync, and 
+   vboxsf for file syncing. A lot of the work in this project inspired 
+   docker-osx-dev.
+2. [dinghy](https://github.com/codekitchen/dinghy): Docker + Vagrant + NFS. 
+   I found NFS was 2-3x slower than running builds locally, which was much 
+   faster than the 10-20x slowness of vboxsf, but still too slow to be usable.
+3. [docker-unison](https://github.com/leighmcculloch/docker-unison): Docker +
+   Unison. The [Unison File Synchronizer](http://www.cis.upenn.edu/~bcpierce/unison/)
+   should be almost as fast as rsync, but I ran into [strange connection 
+   errors](https://github.com/leighmcculloch/docker-unison/issues/2) when I 
+   tried to use it with Docker.
+4. [Polling in Jekyll](http://salizzar.net/2014/11/06/creating-a-github-jekyll-blog-using-docker/)
+   and [Polling in SBT/Play](http://stackoverflow.com/a/26035919/483528). Some
+   of the file syncing solutions, such as vboxsf and NFS, don't work correctly
+   with file watchers that rely on inotify, so these are a couple examples of 
+   how to switch from file watching to polling. Unfortunately, this eats up a
+   fair amount of resources and responds to file changes slower, especially as
+   the project gets larger.
 
 # License
 
