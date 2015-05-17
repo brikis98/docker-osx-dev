@@ -114,7 +114,7 @@ function install_dependencies {
   brew update
 
   brew_install "caskroom/cask/brew-cask" "Cask" "" false
-  brew_install "virtualbox" "VirtualBox" "vboxmanage" true
+  brew_install "virtualbox" "VirtualBox" "vboxwebsrv" true
   brew_install "vagrant" "Vagrant" "vagrant" true
   brew_install "docker" "Docker" "docker" false
   brew_install "docker-compose" "Docker Compose" "docker-compose" false
