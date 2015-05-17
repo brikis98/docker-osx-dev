@@ -97,9 +97,9 @@ drwxr-xr-x   25 root     root          4096 May 16 21:07 ..
 docker-osx-dev uses [rsync](http://en.wikipedia.org/wiki/Rsync)
 to keep the files in sync between OS X and your Docker containers with virtually
 no performance penalty. In the example above, any build you run in the `/src` 
-folder of the Docker container should work just as quickly as if you run it in
-OS X. Also, file watchers should work normally for any system that supports hot
-reload (i.e. make a change and refresh the page).
+folder of the Docker container should work just as quickly as if you ran it in
+OS X. Also, file watchers should work normally for any development environment 
+that supports hot reload (i.e. make a change and refresh the page).
 
 If you are using [Docker Compose](https://docs.docker.com/compose/), 
 docker-osx-dev will automatically use rsync to mount any folders marked as
@@ -134,9 +134,8 @@ test this webapp by going to:
 http://dockerhost:5000
 ```
 
-Notice the use of `dockerhost` in the URL. The docker-osx-dev script 
-automatically adds the proper IP to your `/etc/hosts` file so you don't have to
-mess around with Vagrant or Docker IP addresses. 
+(When you install docker-osx-dev, it prints instructions on how to configure
+`dockerhost` as a URL for your Docker containers).
 
 Finally, to shut down Docker and Vagrant, you can run:
 
@@ -159,8 +158,10 @@ The `setup.sh` also:
 
 1. Adds the `$DOCKER_HOST` environment variable to `~/.bash_profile` or
    `~/.bashrc` file so it is available at startup.
-2. Adds the IP address of the Vagrant box to `/etc/hosts` as `dockerhost` so 
-   you can visit `http://dockerhost:12345` in your browser for easy testing.
+2. Prints instructions on how to add the IP address of the Vagrant box to 
+   `/etc/hosts` as `dockerhost` so you can visit `http://dockerhost:12345` in 
+   your browser for easy testing. The script would add this entry automatically,
+   but you need sudo privileges to modify `/etc/hosts`.
 
 Instead of using vboxsf, docker-osx-dev keeps files in sync by running the
 [vagrant-gatling-rsync](https://github.com/smerrill/vagrant-gatling-rsync) in
