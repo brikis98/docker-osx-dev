@@ -1,4 +1,7 @@
 #!/bin/bash
+# 
+# A script for running a productive development environment with Docker 
+# on OS X. See https://github.com/brikis98/docker-osx-dev for more info.
 
 set -e
 
@@ -62,7 +65,19 @@ function stop {
 }
 
 function instructions {
-  echo "instructions"
+  echo -e "Usage: docker-osx-dev <command>"
+  echo -e 
+  echo -e "Commands:"
+  echo -e "\tinit\t\tInitialize a project for use with docker-osx-dev."
+  echo -e "\tstart\t\tStart Docker, Vagrant, and file syncing."
+  echo -e "\tstop\t\tStop Docker, Vagrant, and file syncing."
+  echo -e
+  echo -e "Examples work flow:"
+  echo -e "\t> docker-osx-dev init\t\t(Just the first time for a new project)"
+  echo -e "\t> docker-osx-dev start\t\t(Docker, Vagrant, and file syncing are now running)"
+  echo -e "\t> docker-compose up\t\t(Your code is now running in the Docker container, but you can make changes in OS X)"
+  echo -e "\t> docker-osx-dev stop"
+  exit 1
 }
 
 function handle_command {

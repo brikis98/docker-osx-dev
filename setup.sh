@@ -1,4 +1,7 @@
 #!/bin/bash
+#
+# A script for setting up a productive development environment with Docker 
+# on OS X. See https://github.com/brikis98/docker-osx-dev for more info.
 
 set -e
 
