@@ -48,17 +48,25 @@ function init {
   fi
 }
 
+function start_sync {
+  log_info "Starting file syncing"
+  vagrant gatling-rsync-auto > /dev/null 2>&1 &  
+}
+
 function start {
   log_info "Starting Docker and Vagrant"
   vagrant up
 
-  log_info "Starting file syncing"
-  vagrant gatling-rsync-auto > /dev/null 2>&1 &
+  start_sync
+}
+
+function stop_sync {
+  log_info "Stopping file syncing"
+  ps aux | grep gatling-rsync-auto | grep -v grep | awk '{print "kill " $2}' | sh  
 }
 
 function stop {
-  log_info "Stopping file syncing"
-  ps aux | grep gatling-rsync-auto | grep -v grep | awk '{print "kill " $2}' | sh
+  stop_sync
 
   log_info "Stopping Docker and Vagrant"
   vagrant suspend
@@ -68,9 +76,11 @@ function instructions {
   echo -e "Usage: docker-osx-dev <command>"
   echo -e 
   echo -e "Commands:"
-  echo -e "\tinit\t\tInitialize a project for use with docker-osx-dev."
-  echo -e "\tstart\t\tStart Docker, Vagrant, and file syncing."
-  echo -e "\tstop\t\tStop Docker, Vagrant, and file syncing."
+  echo -e "\tinit\t\t\tInitialize a project for use with docker-osx-dev."
+  echo -e "\tstart\t\t\tStart Docker, Vagrant, and file syncing."
+  echo -e "\tstop\t\t\tStop Docker, Vagrant, and file syncing."
+  echo -e "\tstart-sync\t\tStart file syncing (assumes Docker and Vagrant are already running)."
+  echo -e "\tstop-sync\t\tStop file syncing."
   echo -e
   echo -e "Examples work flow:"
   echo -e "\t> docker-osx-dev init\t\t(Just the first time for a new project)"
@@ -87,6 +97,8 @@ function handle_command {
     init) init ;;
     start) start ;;
     stop) stop ;;
+    start-sync) start_sync ;;
+    stop-sync) stop_sync ;;
     *) instructions
   esac
 }
