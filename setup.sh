@@ -96,6 +96,13 @@ function get_env_file {
 }
 
 function check_prerequisites {
+  local readonly os=$(uname)
+
+  if [[ ! "$os" = "Darwin" ]]; then
+    log_error "This script should only be run on OS X"
+    exit 1
+  fi
+
   if ! type brew > /dev/null 2>&1 ; then 
     log_error "This script requires HomeBrew, but it's not installed. Aborting."
     exit 1
