@@ -61,7 +61,7 @@ function brew_install {
 
   if brew list "$package_name" > /dev/null 2>&1 ; then
     log_warn "$readable_name is already installed by HomeBrew, skipping"
-  elif ! type "$command_name" > /dev/null 2>&1 ; then
+  elif type "$command_name" > /dev/null 2>&1 ; then
     log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
   else
     log_info "Installing $readable_name"
