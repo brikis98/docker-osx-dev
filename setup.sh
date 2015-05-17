@@ -96,12 +96,13 @@ function get_env_file {
 }
 
 function check_prerequisites {
-  type brew > /dev/null 2>&1 || { log_error "This script requires HomeBrew, but it's not installed. Aborting."; exit 1; }
+  if ! type brew > /dev/null 2>&1 ; then 
+    log_error "This script requires HomeBrew, but it's not installed. Aborting."
+    exit 1
+  fi
 }
 
 function install_dependencies {
-  log_info "Installing dependencies"
-
   log_info "Updating HomeBrew"
   brew update
 
@@ -113,14 +114,10 @@ function install_dependencies {
 }
 
 function install_vagrant_plugins {
-  log_info "Installing Vagrant plugins"
-
   vagrant_plugin_install vagrant-gatling-rsync "Vagrant Gatling Rsync"
 }
 
 function add_environment_variables {
-  log_info "Adding environment variables"
-
   local readonly env_file=$(get_env_file)
   local readonly docker_host_export="$DOCKER_HOST_EXPORT=$DOCKER_HOST"
 
