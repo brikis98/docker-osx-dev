@@ -59,9 +59,9 @@ function brew_install {
   local readonly command_name="$3"
   local readonly use_cask="$4"
 
-  if brew list $package_name > /dev/null 2>&1 ; then
+  if brew list "$package_name" > /dev/null 2>&1 ; then
     log_warn "$readable_name is already installed by HomeBrew, skipping"
-  elif command -v $command_name > /dev/null 2>&1 ; then
+  elif ! type "$command_name" > /dev/null 2>&1 ; then
     log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
   else
     log_info "Installing $readable_name"
@@ -96,7 +96,7 @@ function get_env_file {
 }
 
 function check_prerequisites {
-  command -v brew > /dev/null 2>&1 || { log_error "I require HomeBrew, but it's not installed. Aborting."; exit 1; }
+  type brew > /dev/null 2>&1 || { log_error "This script requires HomeBrew, but it's not installed. Aborting."; exit 1; }
 }
 
 function install_dependencies {
