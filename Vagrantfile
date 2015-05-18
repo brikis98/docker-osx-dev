@@ -1,3 +1,7 @@
+# This Vagrantfile was created by docker-osx-dev. It is used to create a 
+# productive development environment with Docker, Vagrant, and Rsync on OS X.
+# See https://github.com/brikis98/docker-osx-dev for more info.
+
 DOCKER_COMPOSE_FILE = "docker-compose.yml"
 DOCKER_COMPOSE_VOLUMES_KEY = "volumes"
 DOCKER_COMPOSE_VOLUMES_SEPARATOR = ":"

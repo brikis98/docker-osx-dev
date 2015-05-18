@@ -134,8 +134,8 @@ test this webapp by going to:
 http://dockerhost:5000
 ```
 
-(When you install docker-osx-dev, it prints instructions on how to configure
-`dockerhost` as a URL for your Docker containers).
+(When you install docker-osx-dev, it adds an entry to your `/etc/hosts` file so
+that `dockerhost` works as a URL for testing your Docker containers).
 
 Finally, to shut down Docker and Vagrant, you can run:
 
@@ -158,10 +158,8 @@ The `setup.sh` also:
 
 1. Adds the `$DOCKER_HOST` environment variable to `~/.bash_profile` or
    `~/.bashrc` file so it is available at startup.
-2. Prints instructions on how to add the IP address of the Vagrant box to 
-   `/etc/hosts` as `dockerhost` so you can visit `http://dockerhost:12345` in 
-   your browser for easy testing. The script would add this entry automatically,
-   but you need sudo privileges to modify `/etc/hosts`.
+2. Adds an entry to `/etc/hosts` so that `http://dockerhost` works as a valid
+   URL for your docker container for easy testing.
 
 Instead of using vboxsf, docker-osx-dev keeps files in sync by running the
 [vagrant-gatling-rsync](https://github.com/smerrill/vagrant-gatling-rsync) in

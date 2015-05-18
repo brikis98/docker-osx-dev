@@ -127,20 +127,21 @@ function install_vagrant_plugins {
 
 function add_environment_variables {
   local readonly env_file=$(get_env_file)
-  local readonly docker_host_export="$DOCKER_HOST_EXPORT=$DOCKER_HOST"
+  local readonly docker_host_export="\n# docker-osx-dev\n$DOCKER_HOST_EXPORT=$DOCKER_HOST"
 
   if grep -q "$DOCKER_HOST_EXPORT" "$env_file" ; then
-    log_warn "$env_file already contains \"$DOCKER_HOST_EXPORT\", will not overwrite with $docker_host_export"
+    log_warn "$env_file already contains \"$DOCKER_HOST_EXPORT\", will not overwrite"
   else
-    log_info "Adding $docker_host_export to $env_file"
-    echo "$docker_host_export" >> "$env_file"
+    log_info "Adding \"$DOCKER_HOST_EXPORT\" to $env_file"
+    echo -e "$docker_host_export" >> "$env_file"
+    log_instructions "Please run the following command to pick up new environment variables: source $env_file"
   fi  
 }
 
 function install_local_scripts {
   local readonly script_path="$BIN_DIR/$DOCKER_OSX_DEV_SCRIPT_NAME"
   if [[ -f "$script_path" ]]; then
-    log_warn "$DOCKER_OSX_DEV_SCRIPT_NAME already exists, will not overwrite"
+    log_warn "$script_path already exists, will not overwrite"
   else
     log_info "Adding $script_path"
     curl -L "$DOCKER_OSX_DEV_URL" > "$script_path"
@@ -150,17 +151,19 @@ function install_local_scripts {
 
 function add_docker_host {
   local readonly host_entry="$VAGRANT_HOST $DOCKER_HOST_NAME"
+
   if grep -q "$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
-    log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not add entry \"$host_entry\""
+    log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not overwrite"
   else
-    echo
-    log_instructions "Run the following command so you can use http://$DOCKER_HOST_NAME in URLs: sudo echo '$host_entry' >> $HOSTS_FILE"
+    log_info "Adding $DOCKER_HOST_NAME entry to $HOSTS_FILE so you can use http://$DOCKER_HOST_NAME URLs for testing"
+    log_instructions "Modifying $HOSTS_FILE requires sudo privileges, please enter your password."
+    sudo -k sh -c "echo $host_entry >> $HOSTS_FILE"
   fi
 }
 
 check_prerequisites
 install_dependencies
 install_vagrant_plugins
-add_environment_variables
 install_local_scripts
 add_docker_host
+add_environment_variables
