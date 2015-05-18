@@ -39,6 +39,9 @@ To install docker-osx-dev and all of its dependencies, run:
 curl https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/setup.sh | bash
 ```
 
+The setup script is idempotent, so if you have some of the dependencies 
+installed already, it will **not** overwrite them. 
+
 To setup docker-osx-dev for a new project, run:
 
 ```sh
