@@ -59,7 +59,9 @@ function brew_install {
   local readonly command_name="$3"
   local readonly use_cask="$4"
 
-  if brew list "$package_name" > /dev/null 2>&1 ; then
+  if use_cask && brew cask list "$package_name" > /dev/null 2>&1 ; then
+    log_warn "$readable_name is already installed by HomeBrew, skipping"
+  elif brew list "$package_name" > /dev/null 2>&1 ; then
     log_warn "$readable_name is already installed by HomeBrew, skipping"
   elif type "$command_name" > /dev/null 2>&1 ; then
     log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
