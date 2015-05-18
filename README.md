@@ -16,7 +16,7 @@ work until I finally stumbled across one that does: Vagrant and Rsync. Using
 this combination, build and compilation performance in mounted folders is on
 par with native OS X and normal file watching works properly too. However, 
 setting it up correctly is a painful process that involves nearly a dozen steps, 
-so to make life easier, I've packaged this process up in this docker-osx-dev 
+so to make life easier, I've packaged this process up in this **docker-osx-dev** 
 project. 
 
 # Status
