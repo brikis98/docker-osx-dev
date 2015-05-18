@@ -90,12 +90,4 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
       /etc/init.d/docker restart
     EOT
   end  
-
-  # Adjust datetime after suspend and resume
-  config.vm.provision :shell do |s|
-    s.inline = <<-EOT
-      sudo /usr/local/bin/ntpclient -s -h pool.ntp.org
-      date
-    EOT
-  end  
 end
