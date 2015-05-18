@@ -137,8 +137,8 @@ test this webapp by going to:
 http://dockerhost:5000
 ```
 
-(When you install docker-osx-dev, it adds an entry to your `/etc/hosts` file so
-that `dockerhost` works as a URL for testing your Docker containers).
+When you install docker-osx-dev, it adds an entry to your `/etc/hosts` file so
+that `http://dockerhost` works as a URL for testing your Docker containers.
 
 Finally, to shut down Docker and Vagrant, you can run:
 
