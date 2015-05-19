@@ -69,11 +69,11 @@ function test_docker_osx_dev_start {
   VAGRANT_LOG=debug vagrant up
 
   log_info "Contents of VirtualBox folder:"
-  ls "~/VirtualBox\ VMs/"
+  ls ~/VirtualBox\ VMs/
   log_info "Contents of VBox.log:"
-  cat "~/VirtualBox\ VMs/$TEST_FOLDER_boot2docker/Logs/VBox.log" 
+  cat ~/VirtualBox\ VMs/${TEST_FOLDER}_boot2docker/Logs/VBox.log
   log_info "Contents of VBoxStartup.log:"
-  cat "~/VirtualBox\ VMs/$TEST_FOLDER_boot2docker/Logs/VBoxStartup.log" 
+  cat ~/VirtualBox\ VMs/${TEST_FOLDER}_boot2docker/Logs/VBoxStartup.log
 }
 
 function test_docker_run {
