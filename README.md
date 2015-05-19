@@ -105,7 +105,8 @@ to keep the files in sync between OS X and your Docker containers with virtually
 no performance penalty. In the example above, any build you run in the `/src` 
 folder of the Docker container should work just as quickly as if you ran it in
 OS X. Also, file watchers should work normally for any development environment 
-that supports hot reload (i.e. make a change and refresh the page).
+that supports hot reload (i.e. make a change and refresh the page)&mdash;no 
+polling required!
 
 If you are using [Docker Compose](https://docs.docker.com/compose/), 
 docker-osx-dev will automatically use rsync to mount any folders marked as
