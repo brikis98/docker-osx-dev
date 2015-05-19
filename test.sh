@@ -61,7 +61,11 @@ function test_docker_osx_dev_start {
   ls
   # We're just looking for the scripts to run without errors  
   docker-osx-dev init
-  docker-osx-dev start
+  
+  # Temporarily disable this to investigate a build failure in Circle CI
+  # by enabling debugging in vagrant
+  # docker-osx-dev start
+  VAGRANT_LOG=debug vagrant up
 }
 
 function test_docker_run {
