@@ -1,6 +1,7 @@
 machine:
   environment:
-    XCODE_WORKSPACE: "$HOME/docker-osx-dev"
+    XCODE_WORKSPACE: "$HOME/docker-osx-dev" # Dummy value since this project doesn't use XCode or iOS
+    XCODE_SCHEME: "$HOME/docker-osx-dev"    # Dummy value since this project doesn't use XCode or iOS
 test:
   override:
     - ./test.sh
