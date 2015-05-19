@@ -57,8 +57,9 @@ function create_test_project {
 }
 
 function test_docker_osx_dev_start {
-  log_info "Running docker-osx-dev init and start. PWD = $(pwd)"
-  ls
+  log_info "Running docker-osx-dev init and start."
+  log_info "Looking up available memory:"
+  top -l 1 | grep PhysMem
   # We're just looking for the scripts to run without errors  
   docker-osx-dev init
   
