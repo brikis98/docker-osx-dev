@@ -19,6 +19,9 @@ setting it up correctly is a painful process that involves nearly a dozen steps,
 so to make life easier, I've packaged this process up in this **docker-osx-dev** 
 project. 
 
+For more info, check out the blog post [A productive development environment 
+with Docker on OS X](http://www.ybrikman.com/writing/2015/05/19/docker-osx-dev/).
+
 # Status
 
 Alpha. I've tested it on my own computer and am able to code productively, but
