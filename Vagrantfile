@@ -76,10 +76,14 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.name = VAGRANT_FOLDER_NAME + "_boot2docker"
     v.cpus = 1
     v.memory = 2048
+
     # Necessary to ensure "sending build to context" runs quickly
     v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
     v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]    
     v.customize ["modifyvm", :id, "--nictype1", "virtio"]
+
+    # To get CircleCI build to pass
+    v.customize ["modifyvm", :id, "--accelerate3d", "off"]
   end
 
   # Allow Mac OS X docker client to connect to Docker without TLS auth.
