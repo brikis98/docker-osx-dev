@@ -75,7 +75,7 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.gui = false
     v.name = VAGRANT_FOLDER_NAME + "_boot2docker"
     v.cpus = 1
-    v.memory = 2048
+    v.memory = 1024
 
     # Necessary to ensure "sending build to context" runs quickly
     v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
