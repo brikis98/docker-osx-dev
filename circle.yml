@@ -1,3 +1,6 @@
+machine:
+  environment:
+    XCODE_WORKSPACE: "$HOME/docker-osx-dev"
 test:
   override:
     - ./test.sh
