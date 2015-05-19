@@ -2,7 +2,7 @@
 #
 # Automated tests for docker-osx-dev 
 
-set -e
+#set -e
 
 # Test file constants
 readonly TEST_FOLDER="test-project"
@@ -67,6 +67,13 @@ function test_docker_osx_dev_start {
   # by enabling debugging in vagrant
   # docker-osx-dev start
   VAGRANT_LOG=debug vagrant up
+
+  log_info "Contents of VirtualBox folder:"
+  ls "~/VirtualBox\ VMs/"
+  log_info "Contents of VBox.log:"
+  cat "~/VirtualBox\ VMs/$TEST_FOLDER_boot2docker/Logs/VBox.log" 
+  log_info "Contents of VBoxStartup.log:"
+  cat "~/VirtualBox\ VMs/$TEST_FOLDER_boot2docker/Logs/VBoxStartup.log" 
 }
 
 function test_docker_run {
