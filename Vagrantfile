@@ -91,10 +91,6 @@ Vagrant.configure(VAGRANTFILE_API_VERSION) do |config|
     v.customize ["modifyvm", :id, "--natdnshostresolver1", "on"]
     v.customize ["modifyvm", :id, "--natdnsproxy1", "on"]    
     v.customize ["modifyvm", :id, "--nictype1", "virtio"]
-
-    # Disable ioapic to try to be able to run this VM in another VM in the CI
-    # environment without hitting "VT-x is not available" errors
-    v.customize ["modifyvm", :id, "--ioapic", "off"]
   end
 
   # Allow Mac OS X docker client to connect to Docker without TLS auth.
