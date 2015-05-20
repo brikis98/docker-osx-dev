@@ -216,6 +216,9 @@ doesn't work out:
    how to switch from file watching to polling. Unfortunately, this eats up a
    fair amount of resources and responds to file changes slower, especially as
    the project gets larger.
+5. [Hodor](https://github.com/gansbrest/hodor). Uses the [Unison File 
+   Synchronizer](http://www.cis.upenn.edu/~bcpierce/unison/) to sync files. I
+   have not had a chance to try this project out yet.
 
 # License
 
