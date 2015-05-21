@@ -158,6 +158,8 @@ docker-osx-dev stop
 
 # Troubleshooting
 
+### Docker TLS connection errors
+
 If you already had boot2docker installed, you may get the following error:
 
 ```
@@ -172,6 +174,16 @@ using docker-osx-dev, so make sure to:
 
 1. Remove them from `~/.bash_profile` and `~/.bashrc`
 2. Run `unset DOCKER_CERT_PATH DOCKER_TLS_VERIFY` in your current shell.
+
+### How do I ssh into the boot2docker VM?
+
+The docker-osx-dev project uses vagrant under the hood, so most [vagrant 
+commands](https://docs.vagrantup.com/v2/cli/index.html) will work. For example,
+to SSH to the VM, you run:
+
+```
+vagrant ssh
+```
 
 # How it works
 
