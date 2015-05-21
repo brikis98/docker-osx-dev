@@ -13,6 +13,8 @@ readonly ZSH_RC="$HOME/.zshrc"
 # Docker environment variable constants
 readonly DOCKER_HOST_EXPORT="export DOCKER_HOST"
 readonly DOCKER_HOST="tcp://localhost:2375"
+readonly DOCKER_CERT_PATH="DOCKER_CERT_PATH"
+readonly DOCKER_TLS_VERIFY="DOCKER_TLS_VERIFY"
 
 # Url constants
 readonly HOSTS_FILE="/etc/hosts"
@@ -135,7 +137,12 @@ function add_environment_variables {
     log_info "Adding \"$DOCKER_HOST_EXPORT\" to $env_file"
     echo -e "$docker_host_export" >> "$env_file"
     log_instructions "Please run the following command to pick up new environment variables: source $env_file"
-  fi  
+  fi
+
+  if grep -q "$DOCKER_CERT_PATH" "$env_file" || grep -q "$DOCKER_TLS_VERIFY" "$env_file" ; then
+    log_error "$env_file contains \"$DOCKER_CERT_PATH\" and/or \"$DOCKER_TLS_VERIFY\" environment variables, probably from a previous boot2docker install. docker-osx-dev will not work correctly with these."
+    log_instructions "Remove \"$DOCKER_CERT_PATH\" and \"$DOCKER_TLS_VERIFY\" from $env_file and run unset $DOCKER_CERT_PATH $DOCKER_TLS_VERIFY in the current shell."
+  fi
 }
 
 function install_local_scripts {
