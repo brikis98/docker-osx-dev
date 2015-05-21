@@ -42,8 +42,16 @@ To install docker-osx-dev and all of its dependencies, run:
 curl https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/setup.sh | bash
 ```
 
-The setup script is idempotent, so if you have some of the dependencies 
-installed already, it will **not** overwrite them. 
+When `setup.sh` completes, it prints out instructions for one `source` command
+you have to run to pick up important environment variables in your current 
+shell, so make sure not to skip that step!
+
+*Note*: the setup script is idempotent, so if you have some of the dependencies 
+installed already, it will **not** overwrite them. This means if you have 
+boot2docker already installed, you will have to `unset` some of its environment
+variables as explained [here](https://github.com/brikis98/docker-osx-dev/issues/12)
+or you will get a `FATA[0000]` error that asks `Are you trying to connect to a 
+TLS-enabled daemon without TLS?`.
 
 To setup docker-osx-dev for a new project, run:
 
