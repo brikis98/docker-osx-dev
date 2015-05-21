@@ -42,16 +42,14 @@ To install docker-osx-dev and all of its dependencies, run:
 curl https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/setup.sh | bash
 ```
 
-When `setup.sh` completes, it prints out instructions for one `source` command
-you have to run to pick up important environment variables in your current 
-shell, so make sure not to skip that step!
+Two notes about the `setup.sh` script:
 
-*Note*: the setup script is idempotent, so if you have some of the dependencies 
-installed already, it will **not** overwrite them. This means if you have 
-boot2docker already installed, you will have to `unset` some of its environment
-variables as explained [here](https://github.com/brikis98/docker-osx-dev/issues/12)
-or you will get a `FATA[0000]` error that asks `Are you trying to connect to a 
-TLS-enabled daemon without TLS?`.
+1. It is idempotent, so if you have some of the dependencies installed already, 
+   it will **not** overwrite them. If you already have boot2docker installed, 
+   see the [troubleshooting](#troubleshooting) section below.
+2. When `setup.sh` completes, it prints out instructions for one `source` 
+   command you have to run to pick up important environment variables in your 
+   current shell, so make sure not to skip that step!
 
 To setup docker-osx-dev for a new project, run:
 
@@ -157,6 +155,23 @@ Finally, to shut down Docker and Vagrant, you can run:
 ```
 docker-osx-dev stop
 ```
+
+# Troubleshooting
+
+If you already had boot2docker installed, you may get the following error:
+
+```
+FATA[0000] Get http:///var/run/docker.sock/v1.18/containers/json: dial unix /var/run/docker.sock: no such file or directory. 
+Are you trying to connect to a TLS-enabled daemon without TLS?
+```
+
+Part of the boot2docker install process is to add several environment variables
+(based on the output of the `boot2docker shellinit` command), including 
+`DOCKER_CERT_PATH` and `DOCKER_TLS_VERIFY`. You do **not** want these set when
+using docker-osx-dev, so make sure to:
+
+1. Remove them from `~/.bash_profile` and `~/.bashrc`
+2. Run `unset DOCKER_CERT_PATH DOCKER_TLS_VERIFY` in your current shell.
 
 # How it works
 
