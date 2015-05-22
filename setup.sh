@@ -131,7 +131,7 @@ function add_environment_variables {
   local readonly env_file=$(get_env_file)
   local readonly docker_host_export="\n# docker-osx-dev\n$DOCKER_HOST_EXPORT=$DOCKER_HOST"
 
-  if grep -q "$DOCKER_HOST_EXPORT" "$env_file" ; then
+  if grep -q "^[^#]*$DOCKER_HOST_EXPORT" "$env_file" ; then
     log_warn "$env_file already contains \"$DOCKER_HOST_EXPORT\", will not overwrite"
   else
     log_info "Adding \"$DOCKER_HOST_EXPORT\" to $env_file"
@@ -139,7 +139,7 @@ function add_environment_variables {
     log_instructions "Please run the following command to pick up new environment variables: source $env_file"
   fi
 
-  if grep -q "$DOCKER_CERT_PATH" "$env_file" || grep -q "$DOCKER_TLS_VERIFY" "$env_file" ; then
+  if grep -q "^[^#]*$DOCKER_CERT_PATH" "$env_file" || grep -q "^[^#]*$DOCKER_TLS_VERIFY" "$env_file" ; then
     log_error "$env_file contains \"$DOCKER_CERT_PATH\" and/or \"$DOCKER_TLS_VERIFY\" environment variables, probably from a previous boot2docker install. docker-osx-dev will not work correctly with these."
     log_instructions "Remove \"$DOCKER_CERT_PATH\" and \"$DOCKER_TLS_VERIFY\" from $env_file and run unset $DOCKER_CERT_PATH $DOCKER_TLS_VERIFY in the current shell."
   fi
@@ -159,7 +159,7 @@ function install_local_scripts {
 function add_docker_host {
   local readonly host_entry="$VAGRANT_HOST $DOCKER_HOST_NAME"
 
-  if grep -q "$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
+  if grep -q "^[^#]*$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
     log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not overwrite"
   else
     log_info "Adding $DOCKER_HOST_NAME entry to $HOSTS_FILE so you can use http://$DOCKER_HOST_NAME URLs for testing"
