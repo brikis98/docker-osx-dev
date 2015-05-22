@@ -6,7 +6,7 @@
 set -e
 
 # Docker environment which we will need to install for docker-osx-dev to work.
-export   DOCKER_HOST="tcp://localhost:2375"
+DOCKER_HOST="tcp://localhost:2375"
 
 # Environment variable file constants
 readonly BASH_PROFILE="$HOME/.bash_profile"
