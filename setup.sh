@@ -5,16 +5,13 @@
 
 set -e
 
+# Docker environment which we will need to install for docker-osx-dev to work.
+export   DOCKER_HOST="tcp://localhost:2375"
+
 # Environment variable file constants
 readonly BASH_PROFILE="$HOME/.bash_profile"
 readonly BASH_RC="$HOME/.bashrc"
 readonly ZSH_RC="$HOME/.zshrc"
-
-# Docker environment variable constants
-readonly DOCKER_HOST_EXPORT="export DOCKER_HOST"
-readonly DOCKER_HOST="tcp://localhost:2375"
-readonly DOCKER_CERT_PATH="DOCKER_CERT_PATH"
-readonly DOCKER_TLS_VERIFY="DOCKER_TLS_VERIFY"
 
 # Url constants
 readonly HOSTS_FILE="/etc/hosts"
@@ -34,19 +31,19 @@ readonly DOCKER_OSX_DEV_SCRIPT_NAME="docker-osx-dev"
 readonly DOCKER_OSX_DEV_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/$DOCKER_OSX_DEV_SCRIPT_NAME"
 
 function log_info {
-  log "$1" $COLOR_INFO
+  log "$*" $COLOR_INFO
 }
 
 function log_warn {
-  log "$1" $COLOR_WARN
+  log "$*" $COLOR_WARN
 }
 
 function log_error {
-  log "$1" $COLOR_ERROR
+  log "$*" $COLOR_ERROR
 }
 
 function log_instructions {
-  log "$1" $COLOR_INSTRUCTIONS
+  log "$*" $COLOR_INSTRUCTIONS
 }
 
 function log {
@@ -127,22 +124,50 @@ function install_vagrant_plugins {
   vagrant_plugin_install vagrant-gatling-rsync "Vagrant Gatling Rsync"
 }
 
+# env_is_defined VARNAME
+#   Checks if a new $SHELL has $VARNAME defined in its environment.
+#   Returns 0 when VARNAME is defined for new shells, 1 otherwise.
+function env_is_defined {
+  local var="$1"
+  if test -z "${var}" ; then
+    echo >&2 "internal error: no var specified for env_is_defined"
+    exit 1
+  fi
+
+  # First unset the $var in a sub-shell, and then spawn a new shell
+  # to see if it gets re-defined from its startup code.
+  local setting=$( unset "${var}" ;
+                   "${SHELL}" -i -c "env | grep \"^${var}=\"" )
+  test -n "${setting}"
+}
+
 function add_environment_variables {
   local readonly env_file=$(get_env_file)
-  local readonly docker_host_export="\n# docker-osx-dev\n$DOCKER_HOST_EXPORT=$DOCKER_HOST"
 
-  if grep -q "^[^#]*$DOCKER_HOST_EXPORT" "$env_file" ; then
-    log_warn "$env_file already contains \"$DOCKER_HOST_EXPORT\", will not overwrite"
+  if env_is_defined 'DOCKER_HOST' ; then
+    log_warn "${SHELL} setup already defines DOCKER_HOST will not overwrite"
   else
-    log_info "Adding \"$DOCKER_HOST_EXPORT\" to $env_file"
-    echo -e "$docker_host_export" >> "$env_file"
-    log_instructions "Please run the following command to pick up new environment variables: source $env_file"
+    log_info "Adding DOCKER_HOST to $env_file"
+    ( echo '# docker-osx-dev' ;
+      echo "export DOCKER_HOST=${DOCKER_HOST}" ) >> "${env_file}"
+    log_instructions "New environment variables defined."
+    log_instructions "Please source $env_file or run:"
+    log_instructions "  export DOCKER_HOST=${DOCKER_HOST}"
   fi
 
-  if grep -q "^[^#]*$DOCKER_CERT_PATH" "$env_file" || grep -q "^[^#]*$DOCKER_TLS_VERIFY" "$env_file" ; then
-    log_error "$env_file contains \"$DOCKER_CERT_PATH\" and/or \"$DOCKER_TLS_VERIFY\" environment variables, probably from a previous boot2docker install. docker-osx-dev will not work correctly with these."
-    log_instructions "Remove \"$DOCKER_CERT_PATH\" and \"$DOCKER_TLS_VERIFY\" from $env_file and run unset $DOCKER_CERT_PATH $DOCKER_TLS_VERIFY in the current shell."
-  fi
+  # Make sure the other DOCKER_XXX variables which may interfere with
+  # docker-osx-dev's operation are not defined in the environment of
+  # new shells.
+  for varname in 'DOCKER_CERT_PATH' 'DOCKER_TLS_VERIFY' ; do
+    if env_is_defined "$varname" ; then
+      log_error "${SHELL} setup defines ${varname} probably"  \
+        "from a previous boot2docker installation.  This may" \
+        "interfere with docker-osx-dev."
+      log_instructions "Remove ${varname} from ${env_file}"   \
+        "or any other place where it is set, and run in the"  \
+        "current shell: unset ${varname}"
+    fi
+  done
 }
 
 function install_local_scripts {
