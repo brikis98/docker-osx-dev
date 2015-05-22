@@ -52,6 +52,31 @@ function log {
   echo -e "${color} ${message}${COLOR_END}"
 }
 
+# Function to dump a 'stack trace' for failed assertions.
+function backtrace {
+  local readonly max_trace=20
+  frame=0
+  while test $frame -lt $max_trace ; do
+    frame=$(( $frame + 1 ))
+    local bt_file=${BASH_SOURCE[$frame]}
+    local bt_function=${FUNCNAME[$frame]}
+    local bt_line=${BASH_LINENO[$frame-1]}  # called 'from' this line
+    if test -n "${bt_file}${bt_function}" ; then
+      log_error "  at ${bt_file}:${bt_line} ${bt_function}()"
+    fi
+  done
+}
+
+# Assert that arguments of the function are non-empty strings.
+function assert_non_empty {
+  local var="$1"
+  if test -z "$var" ; then
+    log_error "internal error: unexpected empty-string argument"
+    backtrace
+    exit 1
+  fi
+}
+
 function brew_install {
   local readonly package_name="$1"
   local readonly readable_name="$2"
@@ -129,10 +154,7 @@ function install_vagrant_plugins {
 #   Returns 0 when VARNAME is defined for new shells, 1 otherwise.
 function env_is_defined {
   local var="$1"
-  if test -z "${var}" ; then
-    echo >&2 "internal error: no var specified for env_is_defined"
-    exit 1
-  fi
+  assert_non_empty "${var}"
 
   # First unset the $var in a sub-shell, and then spawn a new shell
   # to see if it gets re-defined from its startup code.
