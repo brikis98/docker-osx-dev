@@ -167,7 +167,8 @@ function add_environment_variables {
   local readonly env_file=$(get_env_file)
 
   if env_is_defined 'DOCKER_HOST' ; then
-    log_warn "${SHELL} setup already defines DOCKER_HOST will not overwrite"
+    log_warn "${SHELL} setup (e.g. at ${env_file}) already defines" \
+      "DOCKER_HOST will not overwrite"
   else
     log_info "Adding DOCKER_HOST to $env_file"
     ( echo '# docker-osx-dev' ;
