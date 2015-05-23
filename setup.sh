@@ -6,6 +6,8 @@
 set -e
 
 # Docker environment which we will need to install for docker-osx-dev to work.
+# NOTE: We have to 'unset' this in env_is_defined to make sure that it does not
+# reappear in sub-shells, so it cannot be readonly.
 DOCKER_HOST="tcp://localhost:2375"
 
 # Environment variable file constants
