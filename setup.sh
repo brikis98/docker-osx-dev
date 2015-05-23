@@ -55,7 +55,7 @@ function log {
 # Function to dump a 'stack trace' for failed assertions.
 function backtrace {
   local readonly max_trace=20
-  frame=0
+  local frame=0
   while test $frame -lt $max_trace ; do
     frame=$(( $frame + 1 ))
     local bt_file=${BASH_SOURCE[$frame]}
