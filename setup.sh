@@ -335,7 +335,11 @@ function add_environment_variables {
 }
 
 #
-# Installs the local scripts for docker-osx-dev
+# Usage: install_local-scripts [--script-path SCRIPT_PATH]
+#
+# Installs the local docker-osx-dev script. If the --script-path flag is 
+# specified, copies the script from SCRIPT_PATH (this is mostly useful for 
+# testing). Otherwise, downloads the latest version of the script from GitHub.
 #
 function install_local_scripts {
   local readonly script_path="$BIN_DIR/$DOCKER_OSX_DEV_SCRIPT_NAME"
@@ -343,7 +347,13 @@ function install_local_scripts {
     log_warn "$script_path already exists, will not overwrite"
   else
     log_info "Adding $script_path"
-    curl -L "$DOCKER_OSX_DEV_URL" > "$script_path"
+
+    if [[ "$#" -eq 2 && "$1" = "--script-path" ]]; then
+      cp "$2" "$script_path"
+    else
+      curl -L "$DOCKER_OSX_DEV_URL" > "$script_path"
+    fi
+
     chmod +x "$script_path"
   fi
 }
@@ -364,10 +374,10 @@ function add_docker_host {
   fi
 }
 
-check_prerequisites
-install_dependencies
-init_boot2docker
-install_rsync_on_boot2docker
-install_local_scripts
-add_docker_host
-add_environment_variables
+check_prerequisites "$@"
+install_dependencies "$@"
+init_boot2docker "$@"
+install_rsync_on_boot2docker "$@"
+install_local_scripts "$@"
+add_docker_host "$@"
+add_environment_variables "$@"
