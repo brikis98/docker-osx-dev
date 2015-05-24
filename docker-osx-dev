@@ -5,102 +5,323 @@
 
 set -e
 
-# Vagrant constants
-readonly VAGRANT_FILE_NAME="Vagrantfile"
-readonly VAGRANT_FILE_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/$VAGRANT_FILE_NAME"
-
 # Console colors
-readonly COLOR_INFO='\033[0;32m[INFO]'
-readonly COLOR_WARN='\033[1;33m[WARN]'
-readonly COLOR_ERROR='\033[0;31m[ERROR]'
-readonly COLOR_INSTRUCTIONS='\033[0;37m[INSTRUCTIONS]'
+readonly COLOR_DEBUG='\033[1;36m'
+readonly COLOR_INFO='\033[0;32m'
+readonly COLOR_WARN='\033[1;33m'
+readonly COLOR_ERROR='\033[0;31m'
+readonly COLOR_INSTRUCTIONS='\033[0;37m'
 readonly COLOR_END='\033[0m'
 
+# Log levels 
+readonly LOG_LEVEL_DEBUG="DEBUG"
+readonly LOG_LEVEL_INFO="INFO"
+readonly LOG_LEVEL_WARN="WARN"
+readonly LOG_LEVEL_ERROR="ERROR"
+readonly LOG_LEVEL_INSTRUCTIONS="INSTRUCTIONS"
+readonly LOG_LEVELS=($LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS)
+readonly CURRENT_LOG_LEVEL="${DOCKER_OSX_DEV_LOG_LEVEL:-$LOG_LEVEL_INFO}"
+
+# Boot2Docker constants
+readonly BOOT2DOCKER_IP=$(boot2docker ip)
+readonly BOOT2DOCKER_SSH_KEY="$HOME/.ssh/id_boot2docker"
+readonly BOOT2DOCKER_REMOTE_SHELL_CMD="ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no"
+readonly BOOT2DOCKER_USER="docker"
+readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$BOOT2DOCKER_IP"
+
+# Sync and watch constants
+readonly DEFAULT_PATHS_TO_SYNC=(".")
+readonly DEFAULT_EXCLUDES=(".git" ".vagrant" "*.swp")
+readonly RSYNC_FLAGS=("archive" "verbose" "delete" "omit-dir-times" "inplace" "whole-file")
+PATHS_TO_SYNC=()
+EXCLUDES=()
+
+# Helper function to log an INFO message. See the log function for details.
 function log_info {
-  log "$1" $COLOR_INFO
+  log $COLOR_INFO $LOG_LEVEL_INFO "$@"
 }
 
+# Helper function to log a WARN message. See the log function for details.
 function log_warn {
-  log "$1" $COLOR_WARN
+  log $COLOR_WARN $LOG_LEVEL_WARN "$@"
 }
 
+# Helper function to log a DEBUG message. See the log function for details.
+function log_debug {
+  log $COLOR_DEBUG $LOG_LEVEL_DEBUG "$@"
+}
+
+# Helper function to log an ERROR message. See the log function for details.
 function log_error {
-  log "$1" $COLOR_ERROR
+  log $COLOR_ERROR $LOG_LEVEL_ERROR "$@"
 }
 
+# Helper function to log an INSTRUCTIONS message. See the log function for details.
 function log_instructions {
-  log "$1" $COLOR_INSTRUCTIONS
+  log $COLOR_INSTRUCTIONS $LOG_LEVEL_INSTRUCTIONS "$@"
 }
 
+#
+# Usage: index_of VALUE ARRAY
+#
+# Returns the first index where VALUE appears in ARRAY. If ARRAY does not
+# contain VALUE, returns -1.
+#
+# Examples:
+#
+# index_of foo ("abc" "foo" "def")
+#   Returns: 1
+#
+# index_of foo ("abc" "def")
+#   Returns -1
+#
+function index_of {
+  local readonly value="$1"
+  shift
+  local readonly array=("$@")
+
+  for (( i = 0; i < ${#array[@]}; i++ )); do
+    if [ "${array[$i]}" = "${value}" ]; then
+      echo $i
+      return
+    fi
+  done 
+
+  echo -1
+}
+
+#
+# Usage: log COLOR LEVEL [MESSAGE ...]
+#
+# Logs MESSAGE to stdout with color COLOR if the log level is at least LEVEL.
+# If no MESSAGE is specified, reads from stdin. The log level is determined by 
+# the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
+#
+# Examples:
+#
+# log $COLOR_INFO $LOG_LEVEL_INFO "Hello, World"
+#   Prints: "[INFO] Hello, World" to stdout in green.
+#
+# echo "Hello, World" | log $COLOR_RED $LOG_LEVEL_ERROR 
+#   Prints: "[ERROR] Hello, World" to stdout in red.
+#
 function log {
-  local readonly message=$1
-  local readonly color=$2 || $COLOR_INFO
-  echo -e "${color} ${message}${COLOR_END}"
-}
-
-function init {
-  log_info "Initializing project"
-  if [[ -f "$VAGRANT_FILE_NAME" ]]; then
-    log_warn "$VAGRANT_FILE_NAME already exists, will not overwrite"
+  if [[ "$#" -gt 2 ]]; then
+    do_log "$@"
+  elif [[ "$#" -eq 2 ]]; then
+    while read message; do 
+      do_log "$1" "$2" "$message"
+    done
   else
-    log_info "Creating $VAGRANT_FILE_NAME"
-    curl -L "$VAGRANT_FILE_URL" > $VAGRANT_FILE_NAME
+    echo "Internal error: invalid number of arguments passed to log function: $@"
+    exit 1
   fi
 }
 
-function start_sync {
-  log_info "Starting file syncing"
-  vagrant gatling-rsync-auto > /dev/null 2>&1 &  
+#
+# Usage: do_log COLOR LEVEL MESSAGE ...
+#
+# Logs MESSAGE to stdout with color COLOR if the log level is at least LEVEL.
+# The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL environment 
+# variable.
+#
+# Examples:
+#
+# do_log $COLOR_INFO $LOG_LEVEL_INFO "Hello, World"
+#   Prints: "[INFO] Hello, World" to stdout in green.
+#
+function do_log {
+  local readonly color="$1"
+  shift
+  local readonly log_level="$1"
+  shift
+  local readonly message="$@"
+
+  local readonly log_level_index=$(index_of "$log_level" "${LOG_LEVELS[@]}")
+  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" "${LOG_LEVELS[@]}")
+
+  if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
+    echo -e "${color}[${log_level}] ${message}${COLOR_END}"
+  fi   
 }
 
-function start {
-  log_info "Starting Docker and Vagrant"
-  vagrant up
-
-  start_sync
+#
+# Usage: expand_path PATH
+#
+# Returns the absolute path of PATH, expanding relative paths that include 
+# "." and "..". If PATH is not a valid path (e.g. does not exist), this 
+# function returns nothing.
+#
+# Examples:
+#
+# expand_path /foo/../bar/.
+#    Returns: /bar
+#
+function expand_path {
+  local readonly path="$1"
+  if [ -d "$path" ]; then
+    (cd "$path"; pwd)
+  elif [ -f "$path" ]; then
+    if [[ $path == */* ]]; then
+      echo "$(cd "${path%/*}"; pwd)/${path##*/}"
+    else
+      echo "$(pwd)/$path"
+    fi
+  fi
 }
 
-function stop_sync {
-  log_info "Stopping file syncing"
-  ps aux | grep gatling-rsync-auto | grep -v grep | awk '{print "kill " $2}' | sh  
+#
+# Usage: rsync PATH
+# 
+# Uses rsync to sync PATH to the same PATH on the Boot2Docker VM.
+#
+# Examples:
+#
+# rsync /foo
+#   Result: the contents of /foo are rsync'ed to /foo on the Boot2Docker VM
+#
+function do_rsync {
+  local readonly path="$1"
+  local readonly parent_folder=$(dirname "$path")
+  local readonly flags="${RSYNC_FLAGS[@]/#/--}"
+  local readonly excludes="${EXCLUDES[@]/#/--exclude }"
+  local readonly rsh_flag="--rsh=\"$BOOT2DOCKER_REMOTE_SHELL_CMD\""
+
+  # Used to ensure all the parent directories exist before rsyncing  
+  # http://www.schwertly.com/2013/07/forcing-rsync-to-create-a-remote-path-using-rsync-path/
+  local readonly rsync_path="--rsync-path=\"sudo mkdir -p $parent_folder && sudo chown -R $BOOT2DOCKER_USER $parent_folder && rsync\""
+
+  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $rsync_path $path $BOOT2DOCKER_SSH_URL:$parent_folder"
+  log_debug "$rsync_cmd"
+  eval "$rsync_cmd" 2>&1 | log_debug
 }
 
-function stop {
-  stop_sync
+#
+# Usage: sync [PATHS ...]
+#
+# Uses rsync to sync PATHS to the Boot2Docker VM. If one of the values in PATHS
+# is not valid (e.g. doesn't exist), it will be ignored.
+#
+# Examples:
+#
+# rsync /foo /bar
+#   Result: /foo and /bar are rsync'ed to the Boot2DockerVM
+#
+function sync {
+  local readonly files_to_sync=("$@")
 
-  log_info "Stopping Docker and Vagrant"
-  vagrant suspend
+  for file in "${files_to_sync[@]}"
+  do
+    local readonly abs_path=$(expand_path $file)
+    if [[ -z "$abs_path" ]]; then
+      log_debug "Ignoring invalid path $file"
+    else
+      do_rsync "$abs_path"
+    fi
+  done
 }
 
+#
+# Usage: watch
+#
+# Watches the paths in the global variable PATHS_TO_SYNC for changes and rsyncs
+# any files that changed.
+#
+function watch {
+  log_info "Watching: ${PATHS_TO_SYNC[@]}"
+
+  local readonly excludes="${EXCLUDES[@]/#/--exclude }"
+  local readonly fswatch_cmd="fswatch -0 $excludes ${PATHS_TO_SYNC[@]}"
+  log_debug "$fswatch_cmd"
+
+  eval "$fswatch_cmd" | while read -d "" file
+  do
+    log_info "Detected change in $file"
+    sync "$file"
+  done  
+}
+
+#
+# Usage: watch_and_sync
+#
+# Syncs the paths in the global variable PATHS_TO_SYNC. Kicks off a file watcher
+# that will keep those paths in sync.
+#
+function watch_and_sync {
+  sync "${PATHS_TO_SYNC[@]}"
+  watch
+}
+
+#
+# Usage: instructions
+#
+# Prints the usage instructions for this script to stdout.
+# 
 function instructions {
-  echo -e "Usage: docker-osx-dev <command>"
+  echo -e "Usage: docker-osx-dev [-s path] [-e path] [-h]"
   echo -e 
-  echo -e "Commands:"
-  echo -e "\tinit\t\t\tInitialize a project for use with docker-osx-dev."
-  echo -e "\tstart\t\t\tStart Docker, Vagrant, and file syncing."
-  echo -e "\tstop\t\t\tStop Docker, Vagrant, and file syncing."
-  echo -e "\tstart-sync\t\tStart file syncing (assumes Docker and Vagrant are already running)."
-  echo -e "\tstop-sync\t\tStop file syncing."
+  echo -e "Options, if supplied, have the following meanings:" 
+  echo -e 
+  echo -e "-s path\t\tA path to sync to the Boot2Docker VM. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
+  echo -e "-e path\t\tA path to exclude while syncing. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
+  echo -e "-h\t\tPrint this help text."
+  echo -e 
+  echo -e "Overview:"
+  echo -e 
+  echo -e "docker-osx-dev is a script you can use to sync folders to the Boot2Docker VM using rsync."
+  echo -e "It's an alternative to using VirtualBox shared folders, which are agonizingly slow and break file watchers."
+  echo -e "For more info, see: https://github.com/brikis98/docker-osx-dev"
   echo -e
-  echo -e "Examples work flow:"
-  echo -e "\t> docker-osx-dev init\t\t(Just the first time for a new project)"
-  echo -e "\t> docker-osx-dev start\t\t(Docker, Vagrant, and file syncing are now running)"
-  echo -e "\t> docker-compose up\t\t(Your code is now running in the Docker container, but you can make changes in OS X)"
-  echo -e "\t> docker-osx-dev stop"
-  exit 1
+  echo -e "Example workflow:"
+  echo -e 
+  echo -e "\t> docker-osx-dev -s /host-folder -e .git"
+  echo -e "\t> docker run -v /host-folder:/guest-folder some-docker-image"
+  echo -e 
+  echo -e "After you run the commands above, /host-folder on OS X will be kept in sync with /guest-folder in some-docker-image."
+  echo -e 
 }
 
+#
+# Usage handle_command ARGS ...
+#
+# Parses ARGS to kick off this script. See the output of the instructions 
+# function for details.
+#
 function handle_command {
-  local readonly command=$1
+  while getopts ":s::e::h" opt; do
+    case "$opt" in
+      s)
+        PATHS_TO_SYNC+=("$OPTARG")
+        ;;
+      e)
+        EXCLUDES+=("$OPTARG")
+        ;;
+      h)
+        instructions
+        exit 0
+        ;;
+      :)
+        log_error "Option -$OPTARG requires an argument"
+        instructions
+        exit 1
+        ;;
+      \?) 
+        log_error "Invalid option: -$OPTARG"
+        instructions
+        exit 1
+        ;;
+    esac
+  done
 
-  case "$command" in
-    init) init ;;
-    start) start ;;
-    stop) stop ;;
-    start-sync) start_sync ;;
-    stop-sync) stop_sync ;;
-    *) instructions
-  esac
+  if [[ "${#PATHS_TO_SYNC[@]}" -eq 0 ]]; then
+    PATHS_TO_SYNC=("${DEFAULT_PATHS_TO_SYNC[@]}")
+  fi
+
+  if [[ "${#EXCLUDES[@]}" -eq 0 ]]; then
+    EXCLUDES=("${DEFAULT_EXCLUDES[@]}")
+  fi
+
+  watch_and_sync
 }
 
-handle_command $@
+handle_command "$@"

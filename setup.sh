@@ -5,11 +5,6 @@
 
 set -e
 
-# Docker environment which we will need to install for docker-osx-dev to work.
-# NOTE: We have to 'unset' this in env_is_defined to make sure that it does not
-# reappear in sub-shells, so it cannot be readonly.
-DOCKER_HOST="tcp://localhost:2375"
-
 # Environment variable file constants
 readonly BASH_PROFILE="$HOME/.bash_profile"
 readonly BASH_RC="$HOME/.bashrc"
@@ -17,7 +12,6 @@ readonly ZSH_RC="$HOME/.zshrc"
 
 # Url constants
 readonly HOSTS_FILE="/etc/hosts"
-readonly VAGRANT_HOST="192.168.10.10"
 readonly DOCKER_HOST_NAME="dockerhost"
 
 # Console colors
@@ -31,6 +25,7 @@ readonly COLOR_END='\033[0m'
 readonly BIN_DIR="/usr/local/bin"
 readonly DOCKER_OSX_DEV_SCRIPT_NAME="docker-osx-dev"
 readonly DOCKER_OSX_DEV_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/$DOCKER_OSX_DEV_SCRIPT_NAME"
+
 
 function log_info {
   log "$*" $COLOR_INFO
@@ -54,31 +49,6 @@ function log {
   echo -e "${color} ${message}${COLOR_END}"
 }
 
-# Function to dump a 'stack trace' for failed assertions.
-function backtrace {
-  local readonly max_trace=20
-  local frame=0
-  while test $frame -lt $max_trace ; do
-    frame=$(( $frame + 1 ))
-    local bt_file=${BASH_SOURCE[$frame]}
-    local bt_function=${FUNCNAME[$frame]}
-    local bt_line=${BASH_LINENO[$frame-1]}  # called 'from' this line
-    if test -n "${bt_file}${bt_function}" ; then
-      log_error "  at ${bt_file}:${bt_line} ${bt_function}()"
-    fi
-  done
-}
-
-# Assert that arguments of the function are non-empty strings.
-function assert_non_empty {
-  local var="$1"
-  if test -z "$var" ; then
-    log_error "internal error: unexpected empty-string argument"
-    backtrace
-    exit 1
-  fi
-}
-
 function brew_install {
   local readonly package_name="$1"
   local readonly readable_name="$2"
@@ -98,18 +68,6 @@ function brew_install {
     log_info "Installing $readable_name"
     eval "$brew_command install $package_name"
   fi  
-}
-
-function vagrant_plugin_install {
-  local readonly plugin_name=$1
-  local readonly readable_name=$2
-
-  if vagrant plugin list | grep -q $plugin_name ; then
-    log_warn "$readable_name already installed, skipping"
-  else
-    log_info "Installing $readable_name"
-    vagrant plugin install $plugin_name
-  fi
 }
 
 function get_env_file {
@@ -142,57 +100,39 @@ function install_dependencies {
 
   brew_install "caskroom/cask/brew-cask" "Cask" "" false
   brew_install "virtualbox" "VirtualBox" "vboxwebsrv" true
-  brew_install "vagrant" "Vagrant" "vagrant" true
-  brew_install "docker" "Docker" "docker" false
+  brew_install "boot2docker" "Boot2Docker" "boot2docker" false
   brew_install "docker-compose" "Docker Compose" "docker-compose" false
+  brew_install "fswatch" "fswatch" "fswatch" false
 }
 
-function install_vagrant_plugins {
-  vagrant_plugin_install vagrant-gatling-rsync "Vagrant Gatling Rsync"
+function init_boot2docker {
+  if boot2docker status >/dev/null ; then
+    log_error "Boot2Docker already initialized. You must destroy your Boot2Docker image so docker-osx-dev can re-create it without VirtualBox shares."
+    log_instructions "Perform the following:\n\tboot2docker stop\n\tboot2docker destroy\n\tRe-run this install.sh script"
+    exit 1
+  else
+    log_info "Initializing Boot2Docker"
+    boot2docker init
+    boot2docker start --vbox-share=disable
+  fi
 }
 
-# env_is_defined VARNAME
-#   Checks if a new $SHELL has $VARNAME defined in its environment.
-#   Returns 0 when VARNAME is defined for new shells, 1 otherwise.
-function env_is_defined {
-  local var="$1"
-  assert_non_empty "${var}"
-
-  # First unset the $var in a sub-shell, and then spawn a new shell
-  # to see if it gets re-defined from its startup code.
-  local setting=$( unset "${var}" ;
-                   "${SHELL}" -i -c "env | grep \"^${var}=\"" )
-  test -n "${setting}"
+function install_rsync_on_boot2docker {
+  log_info "Installing rsync in the Boot2Docker image"
+  boot2docker ssh "tce-load -wi rsync"
 }
 
 function add_environment_variables {
   local readonly env_file=$(get_env_file)
+  local readonly boot2docker_exports=$(boot2docker shellinit 2>/dev/null)
 
-  if env_is_defined 'DOCKER_HOST' ; then
-    log_warn "${SHELL} setup (e.g. at ${env_file}) already defines" \
-      "DOCKER_HOST will not overwrite"
+  if grep -q "^[^#]*$boot2docker_exports" "$env_file" ; then
+    log_warn "$env_file already contains Boot2Docker environment variables, will not overwrite"
   else
-    log_info "Adding DOCKER_HOST to $env_file"
-    ( echo '# docker-osx-dev' ;
-      echo "export DOCKER_HOST=${DOCKER_HOST}" ) >> "${env_file}"
-    log_instructions "New environment variables defined."
-    log_instructions "Please source $env_file or run:"
-    log_instructions "  export DOCKER_HOST=${DOCKER_HOST}"
+    log_info "Adding Boot2Docker environment variables to $env_file"
+    echo -e "$boot2docker_exports" >> "$env_file"
+    log_instructions "Please run the following command to pick up new environment variables: source $env_file"
   fi
-
-  # Make sure the other DOCKER_XXX variables which may interfere with
-  # docker-osx-dev's operation are not defined in the environment of
-  # new shells.
-  for varname in 'DOCKER_CERT_PATH' 'DOCKER_TLS_VERIFY' ; do
-    if env_is_defined "$varname" ; then
-      log_error "${SHELL} setup defines ${varname} probably"  \
-        "from a previous boot2docker installation.  This may" \
-        "interfere with docker-osx-dev."
-      log_instructions "Remove ${varname} from ${env_file}"   \
-        "or any other place where it is set, and run in the"  \
-        "current shell: unset ${varname}"
-    fi
-  done
 }
 
 function install_local_scripts {
@@ -207,7 +147,8 @@ function install_local_scripts {
 }
 
 function add_docker_host {
-  local readonly host_entry="$VAGRANT_HOST $DOCKER_HOST_NAME"
+  local readonly boot2docker_ip=$(boot2docker ip)
+  local readonly host_entry="$boot2docker_ip $DOCKER_HOST_NAME"
 
   if grep -q "^[^#]*$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
     log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not overwrite"
@@ -220,7 +161,8 @@ function add_docker_host {
 
 check_prerequisites
 install_dependencies
-install_vagrant_plugins
+init_boot2docker
+install_rsync_on_boot2docker
 install_local_scripts
 add_docker_host
 add_environment_variables
