@@ -20,7 +20,8 @@ readonly LOG_LEVEL_WARN="WARN"
 readonly LOG_LEVEL_ERROR="ERROR"
 readonly LOG_LEVEL_INSTRUCTIONS="INSTRUCTIONS"
 readonly LOG_LEVELS=($LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS)
-readonly CURRENT_LOG_LEVEL="${DOCKER_OSX_DEV_LOG_LEVEL:-$LOG_LEVEL_INFO}"
+readonly DEFAULT_LOG_LEVEL="$LOG_LEVEL_INFO"
+CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 
 # Boot2Docker constants
 readonly BOOT2DOCKER_IP=$(boot2docker ip)
@@ -258,12 +259,13 @@ function watch_and_sync {
 # Prints the usage instructions for this script to stdout.
 # 
 function instructions {
-  echo -e "Usage: docker-osx-dev [-s path] [-e path] [-h]"
+  echo -e "Usage: docker-osx-dev [-s PATH] [-e PATH] [-l LOG_LEVEL] [-h]"
   echo -e 
   echo -e "Options, if supplied, have the following meanings:" 
   echo -e 
-  echo -e "-s path\t\tA path to sync to the Boot2Docker VM. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
-  echo -e "-e path\t\tA path to exclude while syncing. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
+  echo -e "-s PATH\t\tSync PATH to the Boot2Docker VM. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
+  echo -e "-e PATH\t\tExclude PATH while syncing. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
+  echo -e "-l LOG_LEVEL\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "-h\t\tPrint this help text."
   echo -e 
   echo -e "Overview:"
@@ -288,13 +290,24 @@ function instructions {
 # function for details.
 #
 function handle_command {
-  while getopts ":s::e::h" opt; do
+  while getopts ":s::e::l::h" opt; do
     case "$opt" in
       s)
         PATHS_TO_SYNC+=("$OPTARG")
         ;;
       e)
         EXCLUDES+=("$OPTARG")
+        ;;
+      l)
+        local readonly level="$OPTARG"
+        local readonly index=$(index_of "$level" "${LOG_LEVELS[@]}")
+        if [[ "$index" -ge 0 ]]; then
+          CURRENT_LOG_LEVEL="$level"
+        else
+          log_error "Invalid log level specified: $level"
+          instructions
+          exit 1
+        fi
         ;;
       h)
         instructions
