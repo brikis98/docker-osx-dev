@@ -386,7 +386,7 @@ function init_boot2docker {
 #
 function install_rsync_on_boot2docker {
   log_info "Installing rsync in the Boot2Docker image"
-  boot2docker ssh "! type rsync > /dev/null 2>&1 && tce-load -wi rsync"
+  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
 }
 
 #
