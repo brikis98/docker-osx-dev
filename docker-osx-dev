@@ -35,7 +35,8 @@ readonly DOCKER_COMPOSE_FILE="docker-compose.yml"
 
 # Sync and watch constants
 readonly DEFAULT_PATHS_TO_SYNC=(".")
-readonly DEFAULT_EXCLUDES=(".git" ".vagrant" "*.swp")
+readonly DEFAULT_EXCLUDES=(".git")
+readonly DEFAULT_IGNORE_FILE=".dockerignore"
 readonly RSYNC_FLAGS=("archive" "verbose" "delete" "omit-dir-times" "inplace" "whole-file")
 PATHS_TO_SYNC=()
 EXCLUDES=()
@@ -256,15 +257,16 @@ function watch_and_sync {
 # Prints the usage instructions for this script to stdout.
 # 
 function instructions {
-  echo -e "Usage: docker-osx-dev [-s PATH] [-e PATH] [-l LOG_LEVEL] [-c DOCKER_COMPOSE_FILE] [-h]"
+  echo -e "Usage: docker-osx-dev [-s PATH] [-e PATH] [-l LOG_LEVEL] [-c COMPOSE_FILE] [-i IGNORE_FILE] [-h]"
   echo -e 
   echo -e "Options, if supplied, have the following meanings:" 
   echo -e 
-  echo -e "-s PATH\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
-  echo -e "-e PATH\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
-  echo -e "-c DOCKER_COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DOCKER_COMPOSE_FILE"
-  echo -e "-l LOG_LEVEL\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
-  echo -e "-h\t\tPrint this help text."
+  echo -e "-s PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
+  echo -e "-e PATH\t\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
+  echo -e "-c COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DOCKER_COMPOSE_FILE"
+  echo -e "-c IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing. Default: $DEFAULT_IGNORE_FILE"
+  echo -e "-l LOG_LEVEL\t\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
+  echo -e "-h\t\t\tPrint this help text."
   echo -e 
   echo -e "Overview:"
   echo -e 
@@ -274,7 +276,7 @@ function instructions {
   echo -e
   echo -e "Example workflow:"
   echo -e 
-  echo -e "\t> docker-osx-dev -s /host-folder -e .git -e \"*.swp\""
+  echo -e "\t> docker-osx-dev -s /host-folder"
   echo -e "\t> docker run -v /host-folder:/guest-folder some-docker-image"
   echo -e 
   echo -e "After you run the commands above, /host-folder on OS X will be kept in sync with /guest-folder in some-docker-image."
@@ -294,8 +296,8 @@ function load_paths_from_docker_compose {
 
   local in_volumes_block=false
   local paths=()
-  while read line ; do
-    if $in_volumes_block ; then
+  while read line; do
+    if $in_volumes_block; then
       if [[ "${line:0:2}" = "- " ]]; then
         local readonly path=$(echo $line | sed -e "s/- \(.*\):.*$/\1/")
         paths+=("$path")
@@ -312,6 +314,19 @@ function load_paths_from_docker_compose {
   echo "${paths[@]}"
 }
 
+function load_ignore_paths {
+  local readonly ignore_file="$1"
+
+  local paths=()
+  while read line; do
+    if [[ "${line:0:1}" != "#" ]]; then
+      paths+=("$line")
+    fi
+  done < "$ignore_file"
+
+  echo "${paths[@]}"
+}
+
 #
 # Usage handle_command ARGS ...
 #
@@ -323,8 +338,10 @@ function handle_command {
   local excludes=()  
   local docker_compose_file=""
   local docker_compose_paths=()
+  local ignore_file=""
+  local ignore_paths=()
 
-  while getopts ":s::e::c::l::h" opt; do
+  while getopts ":s::e::c::l::i::h" opt; do
     case "$opt" in
       s)
         paths_to_sync+=("$OPTARG")
@@ -334,6 +351,9 @@ function handle_command {
         ;;
       c)
         docker_compose_file="$OPTARG"
+        ;;
+      i)
+        ignore_file="$OPTARG"
         ;;
       l)
         local readonly level="$OPTARG"
@@ -381,17 +401,29 @@ function handle_command {
     log_debug "Using sync paths from command line args"
   fi
   
-  if [[ "${#excludes[@]}" -eq 0 ]]; then
-    log_debug "Using default exclude paths"
-    excludes=("${DEFAULT_EXCLUDES[@]}")
-  fi
-
-  for path in "${paths_to_sync[@]}" ; do
+  for path in "${paths_to_sync[@]}"; do
     local normalized_path=$(greadlink -m "$path")
     PATHS_TO_SYNC+=("$normalized_path")
   done
 
-  EXCLUDES=("${excludes[@]}")
+  if [[ -z "$ignore_file" ]]; then
+    ignore_file="$DEFAULT_IGNORE_FILE"
+  fi
+
+  if [[ -f "$ignore_file" ]]; then
+    ignore_paths=($(load_ignore_paths "$ignore_file"))
+  fi
+
+  if [[ "${#ignore_paths}" -gt 0 ]]; then
+    log_info "Using excludes from $ignore_file"
+    EXCLUDES=("${ignore_paths[@]}")
+  elif [[ "${#excludes[@]}" -eq 0 ]]; then
+    log_debug "Using default exclude paths"
+    EXCLUDES=("${DEFAULT_EXCLUDES[@]}")    
+  else
+    log_debug "Using exclude paths from command line args"
+    EXCLUDES=("${excludes[@]}")
+  fi
 
   watch_and_sync
 }
