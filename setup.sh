@@ -279,6 +279,7 @@ function install_dependencies {
   brew_install "boot2docker" "Boot2Docker" "boot2docker" false
   brew_install "docker-compose" "Docker Compose" "docker-compose" false
   brew_install "fswatch" "fswatch" "fswatch" false
+  brew_install "coreutils" "GNU core utilities" "greadlink" false
 }
 
 #

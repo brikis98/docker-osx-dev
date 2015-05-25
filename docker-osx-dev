@@ -24,11 +24,11 @@ readonly DEFAULT_LOG_LEVEL="$LOG_LEVEL_INFO"
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 
 # Boot2Docker constants
-readonly BOOT2DOCKER_IP=$(boot2docker ip)
-readonly BOOT2DOCKER_SSH_KEY="$HOME/.ssh/id_boot2docker"
+readonly DOCKER_HOST_NAME="dockerhost"
+readonly BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
 readonly BOOT2DOCKER_REMOTE_SHELL_CMD="ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no"
 readonly BOOT2DOCKER_USER="docker"
-readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$BOOT2DOCKER_IP"
+readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 
 # Sync and watch constants
 readonly DEFAULT_PATHS_TO_SYNC=(".")
@@ -147,31 +147,6 @@ function do_log {
 }
 
 #
-# Usage: expand_path PATH
-#
-# Returns the absolute path of PATH, expanding relative paths that include 
-# "." and "..". If PATH is not a valid path (e.g. does not exist), this 
-# function returns nothing.
-#
-# Examples:
-#
-# expand_path /foo/../bar/.
-#    Returns: /bar
-#
-function expand_path {
-  local readonly path="$1"
-  if [ -d "$path" ]; then
-    (cd "$path"; pwd)
-  elif [ -f "$path" ]; then
-    if [[ $path == */* ]]; then
-      echo "$(cd "${path%/*}"; pwd)/${path##*/}"
-    else
-      echo "$(pwd)/$path"
-    fi
-  fi
-}
-
-#
 # Usage: rsync PATH
 # 
 # Uses rsync to sync PATH to the same PATH on the Boot2Docker VM.
@@ -183,7 +158,9 @@ function expand_path {
 #
 function do_rsync {
   local readonly path="$1"
-  local readonly parent_folder=$(dirname "$path")
+  local readonly normalized_path=$(greadlink -m "$path")
+  local readonly parent_folder=$(dirname "$normalized_path")
+
   local readonly flags="${RSYNC_FLAGS[@]/#/--}"
   local readonly excludes="${EXCLUDES[@]/#/--exclude }"
   local readonly rsh_flag="--rsh=\"$BOOT2DOCKER_REMOTE_SHELL_CMD\""
@@ -192,7 +169,7 @@ function do_rsync {
   # http://www.schwertly.com/2013/07/forcing-rsync-to-create-a-remote-path-using-rsync-path/
   local readonly rsync_path="--rsync-path=\"sudo mkdir -p $parent_folder && sudo chown -R $BOOT2DOCKER_USER $parent_folder && rsync\""
 
-  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $rsync_path $path $BOOT2DOCKER_SSH_URL:$parent_folder"
+  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $rsync_path $normalized_path $BOOT2DOCKER_SSH_URL:$parent_folder"
   log_debug "$rsync_cmd"
   eval "$rsync_cmd" 2>&1 | log_debug
 }
@@ -209,16 +186,11 @@ function do_rsync {
 #   Result: /foo and /bar are rsync'ed to the Boot2DockerVM
 #
 function sync {
-  local readonly files_to_sync=("$@")
+  local readonly paths_to_sync=("$@")
 
-  for file in "${files_to_sync[@]}"
+  for path in "${paths_to_sync[@]}"
   do
-    local readonly abs_path=$(expand_path $file)
-    if [[ -z "$abs_path" ]]; then
-      log_debug "Ignoring invalid path $file"
-    else
-      do_rsync "$abs_path"
-    fi
+    do_rsync "$path"
   done
 }
 
@@ -263,8 +235,8 @@ function instructions {
   echo -e 
   echo -e "Options, if supplied, have the following meanings:" 
   echo -e 
-  echo -e "-s PATH\t\tSync PATH to the Boot2Docker VM. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
-  echo -e "-e PATH\t\tExclude PATH while syncing. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
+  echo -e "-s PATH\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
+  echo -e "-e PATH\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
   echo -e "-l LOG_LEVEL\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "-h\t\tPrint this help text."
   echo -e 
@@ -276,7 +248,7 @@ function instructions {
   echo -e
   echo -e "Example workflow:"
   echo -e 
-  echo -e "\t> docker-osx-dev -s /host-folder -e .git"
+  echo -e "\t> docker-osx-dev -s /host-folder -e .git -e \"*.swp\""
   echo -e "\t> docker run -v /host-folder:/guest-folder some-docker-image"
   echo -e 
   echo -e "After you run the commands above, /host-folder on OS X will be kept in sync with /guest-folder in some-docker-image."
