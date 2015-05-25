@@ -194,7 +194,7 @@ function do_rsync {
   local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
   log_debug "$rsync_cmd"
 
-  eval "$rsync_cmd" 2>&1 | log_debug
+  eval "$rsync_cmd" 2>&1 | log_info
 }
 
 #
@@ -240,6 +240,7 @@ function join {
 #
 function initial_sync {
   local readonly paths_to_sync=("$@")
+  log_info "Performing initial sync of paths: ${paths_to_sync[@]}"
 
   local dirs_to_create=()
   for path in "${paths_to_sync[@]}"; do
@@ -256,6 +257,7 @@ function initial_sync {
   boot2docker ssh "$ssh_cmd"
 
   sync "${paths_to_sync[@]}"
+  log_info "Initial sync done"
 }
 
 #
@@ -430,7 +432,7 @@ function handle_command {
   fi
 
   if [[ "${#docker_compose_paths}" -gt 0 ]]; then
-    log_info "Syncing paths from Docker Compose file at $docker_compose_file"
+    log_info "Using sync paths from Docker Compose file at $docker_compose_file"
     paths_to_sync=("${docker_compose_paths[@]}")
   elif [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
     log_debug "Using default sync paths"
