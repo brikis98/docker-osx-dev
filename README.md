@@ -12,12 +12,12 @@ container, you will run into two major problems:
    slower to pick up changes and eats up a lot of resources.
 
 I tried many different solutions (see [Alternatives](#alternatives)) that didn't
-work until I finally stumbled across one that does: Vagrant and Rsync. Using
-this combination, build and compilation performance in mounted folders is on
-par with native OS X and normal file watching works properly too. However, 
-setting it up correctly is a painful process that involves nearly a dozen steps, 
-so to make life easier, I've packaged this process up in this **docker-osx-dev** 
-project. 
+work until I finally stumbled across one that does:
+[rsync](http://en.wikipedia.org/wiki/Rsync). With rsync, build and compilation 
+performance in mounted folders is on par with native OS X performance and 
+standard file watching mechanisms work properly too. However, setting it up 
+correctly is a painful process that involves many steps, so to make life 
+easier, I've packaged this process up in this **docker-osx-dev** project. 
 
 For more info, check out the blog post [A productive development environment 
 with Docker on OS X](http://www.ybrikman.com/writing/2015/05/19/docker-osx-dev/).
@@ -42,106 +42,92 @@ To install docker-osx-dev and all of its dependencies, run:
 curl https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/setup.sh | bash
 ```
 
-Two notes about the `setup.sh` script:
+Three notes about the `setup.sh` script:
 
 1. It is idempotent, so if you have some of the dependencies installed already, 
-   it will **not** overwrite them. If you already have boot2docker installed, 
-   see the [troubleshooting](#troubleshooting) section below.
+   it will **not** overwrite them.
 2. When `setup.sh` completes, it prints out instructions for one `source` 
    command you have to run to pick up important environment variables in your 
    current shell, so make sure not to skip that step!
 
-To setup docker-osx-dev for a new project, run:
-
-```sh
-docker-osx-dev init
-```
-
-This will create a [Vagrantfile](http://docs.vagrantup.com/v2/vagrantfile/) in
-the same folder. You should commit this file to source control. You only need
-to do this once per project.
-
 # Usage
 
-Once you've setup a project with docker-osx-dev, use the following command to
-start Vagrant, Docker, and file syncing:
+The `setup.sh` script will install, configure, and run Boot2Docker on your 
+system, so the only thing left to do is to tell it what folders to sync using
+rsync using the `docker-osx-dev` script. If you run it with no arguments, it
+will sync the current folder to the Boot2Docker VM:
 
-```sh
-docker-osx-dev start
+```
+> cd /foo/bar
+> docker-osx-dev
+[INFO] Watching /foo/bar
 ```
 
-You can now run whatever Docker containers you like. For example, here is how 
-you can fire up the tiny [Alpine Linux image](https://registry.hub.docker.com/u/gliderlabs/alpine/)
+Alternatively, you can also use the `-s` flag to specify what folders to sync
+(run `docker-sox-dev -h` to see all supported options):
+
+```
+> docker-osx-dev -s /foo/bar
+[INFO] Watching /foo/bar
+```
+
+Now, in a separate tab, you can run a Docker container and mount the current
+folder in it using the `-v` parameter. For example, here is how you can fire up 
+the tiny [Alpine Linux image](https://registry.hub.docker.com/u/gliderlabs/alpine/)
 and get a Linux console in seconds:
 
 ```
-> echo "I'm running in $(uname)"
-I'm running in Darwin
-
-> docker run -it --rm gliderlabs/alpine:3.1 sh
-/ # echo "Now I'm running in $(uname)!"
-Now I'm running in Linux!
-```
-
-You can use the `-v` flag to mount a source folder. For example, here is how
-you can mount the current directory on OS X so it shows up under `/src` in the
-Docker container:
-
-```
-> ls -al
-total 16
-drwxr-xr-x  4 brikis98  staff  136 May 16 14:05 .
-drwxr-xr-x  7 brikis98  staff  238 May 16 14:04 ..
--rw-r--r--  1 brikis98  staff   12 May 16 14:05 bar
--rw-r--r--  1 brikis98  staff    4 May 16 14:05 foo
-
-> docker run -it --rm -v $(pwd):/src gliderlabs/alpine:3.1 sh
+> cd /foo/bar
+> docker run -v $(pwd):/src -it --rm gliderlabs/alpine:3.1 sh
 / # cd /src
-/src # ls -al
-total 12
-drwxrwxrwx    2 1000     users           80 May 16 21:06 .
-drwxr-xr-x   25 root     root          4096 May 16 21:07 ..
--rw-rw-rw-    1 1000     users           12 May 16 21:06 bar
--rw-rw-rw-    1 1000     users            4 May 16 21:06 foo
-
+/ # echo "I'm in a $(uname) container and my OS X files are being synced to $(pwd)!"
+I'm in a Linux container and my OS X files are being synced to /src!
 ```
 
-docker-osx-dev uses [rsync](http://en.wikipedia.org/wiki/Rsync)
-to keep the files in sync between OS X and your Docker containers with virtually
-no performance penalty. In the example above, any build you run in the `/src` 
-folder of the Docker container should work just as quickly as if you ran it in
-OS X. Also, file watchers should work normally for any development environment 
-that supports hot reload (i.e. make a change and refresh the page)&mdash;no 
-polling required!
+As you make changes to the files in the `/foo/bar` folder on OS X, using the 
+text editors, IDEs, and tools you're used to, they will be automatically
+synced to the `/src` folder in the Docker image. Moreover, file watchers should 
+work normally in the Docker container for any framework that supports hot 
+reload (e.g. Grunt, SBT, Jekyll) using inotify (instead of polling), so you 
+should be able to use a "make a change and refresh the page" development model.
 
 If you are using [Docker Compose](https://docs.docker.com/compose/), 
 docker-osx-dev will automatically use rsync to mount any folders marked as
-[volumes](https://docs.docker.com/compose/yml/#volumes). For example, let's say 
-you had the following `docker-compose.yml` file:
+[volumes](https://docs.docker.com/compose/yml/#volumes) in `docker-compose.yml`. 
+For example, let's say you had the following `docker-compose.yml` file:
 
 ```yml
 web:  
   image: training/webapp
   volumes:
-    - .:/src
+    - /foo:/src
   ports:
     - "5000:5000"
 db:
   image: postgres    
 ```
 
-You could run this file as follows:
+First, run `docker-osx-dev`:
+
+```
+> docker-osx-dev
+[INFO] Found docker-compose.yml
+[INFO] Watching /foo
+```
+
+Notice how it automatically found `/foo` in the `docker-compose.yml` file. 
+Now you can start your Docker containers:
 
 ```sh
 docker-compose up
 ```
 
-This would fire up a [Postgres 
+This will fire up a [Postgres 
 database](https://registry.hub.docker.com/u/library/postgres/) and the [training 
 webapp](https://registry.hub.docker.com/u/training/webapp/) (a simple "Hello, 
-World" Python app), mount the current directory into `/src` in the webapp 
-container (using rsync, so it'll be fast), and expose port 5000. You can now
-test this webapp by going to:
+World" Python app), mount the `/foo` folder into `/src` in the webapp container 
+(which docker-osx-dev will keep in sync using rsync), and expose port 5000. You 
+can now test this webapp by going to:
 
 ```
 http://dockerhost:5000
@@ -150,78 +136,41 @@ http://dockerhost:5000
 When you install docker-osx-dev, it adds an entry to your `/etc/hosts` file so
 that `http://dockerhost` works as a URL for testing your Docker containers.
 
-Finally, to shut down Docker and Vagrant, you can run:
-
-```
-docker-osx-dev stop
-```
-
-# Troubleshooting
-
-### Docker TLS connection errors
-
-If you already had boot2docker installed, you may get the following error:
-
-```
-FATA[0000] Get http:///var/run/docker.sock/v1.18/containers/json: dial unix /var/run/docker.sock: no such file or directory. 
-Are you trying to connect to a TLS-enabled daemon without TLS?
-```
-
-Part of the boot2docker install process is to add several environment variables
-(based on the output of the `boot2docker shellinit` command), including 
-`DOCKER_CERT_PATH` and `DOCKER_TLS_VERIFY`. You do **not** want these set when
-using docker-osx-dev, so make sure to:
-
-1. Remove them from `~/.bash_profile` and `~/.bashrc`
-2. Run `unset DOCKER_CERT_PATH DOCKER_TLS_VERIFY` in your current shell.
-
-### How do I ssh into the boot2docker VM?
-
-The docker-osx-dev project uses vagrant under the hood, so most [vagrant 
-commands](https://docs.vagrantup.com/v2/cli/index.html) will work. For example,
-to SSH to the VM, you run:
-
-```
-vagrant ssh
-```
-
 # How it works
 
 The `setup.sh` script installs all the software you need:
 
 1. [Docker](https://www.docker.com/)
-2. [Docker Compose](https://docs.docker.com/compose/)
-3. [VirtualBox](https://www.virtualbox.org/)
-4. [Vagrant](https://www.vagrantup.com/)
-5. [vagrant-gatling-rsync](https://github.com/smerrill/vagrant-gatling-rsync)
-6. The docker-osx-dev script which you can use to start/stop Docker and Vagrant
+2. [Boot2Docker](http://boot2docker.io/)
+3. [Docker Compose](https://docs.docker.com/compose/)
+4. [VirtualBox](https://www.virtualbox.org/)
+5. [fswatch](https://github.com/emcrisostomo/fswatch)
+6. The `docker-osx-dev` script which you can use to start/stop file syncing
 
 The `setup.sh` also:
 
-1. Adds the `$DOCKER_HOST` environment variable to `~/.bash_profile` or
-   `~/.bashrc` file so it is available at startup.
+1. Adds the Docker environment variables to your environment file (e.g. 
+   `~/.bash_profile`) so it is available at startup.
 2. Adds an entry to `/etc/hosts` so that `http://dockerhost` works as a valid
    URL for your docker container for easy testing.
 
-Instead of using vboxsf, docker-osx-dev keeps files in sync by running the
-[vagrant-gatling-rsync](https://github.com/smerrill/vagrant-gatling-rsync) in
-the background, which uses [rsync](http://en.wikipedia.org/wiki/Rsync) to 
-quickly copy changes from OS X to your Docker container. By default, the current
-source folder (i.e. the one with the `Vagrantfile`) is synced. If you use 
+Instead of using VirtualBox shared folders and vboxsf, docker-osx-dev keeps 
+files in sync by using [fswatch](https://github.com/emcrisostomo/fswatch) to
+watch for changes and [rsync](http://en.wikipedia.org/wiki/Rsync) to quickly
+sync the files to the Boot2Docker VM. By default, the current source folder 
+(i.e. the one you're in when you run `docker-osx-dev`) is synced. If you use 
 `docker-compose`, docker-osx-dev will sync any folders marked as 
 [volumes](https://docs.docker.com/compose/yml/#volumes).
 
 # Limitations and known issues
 
-1. File syncing is currently one way only. That is, changes you make on OS X
-   will be visible very quickly in the Docker container. However, changes in the
-   Docker container will **not** be propagated back to OS X. This isn't a 
-   problem for most development scenarios, but time permitting, I'll be looking
-   into using [Unison](http://www.cis.upenn.edu/~bcpierce/unison/) to support
-   two-way sync.
-2. Too may technologies. I'd prefer to not have to use Vagrant, but it makes
-   using rsync very easy. Time permitting, I'll be looking into using rsync
-   directly with Boot2Docker.
+File syncing is currently one way only. That is, changes you make on OS X
+will be visible very quickly in the Docker container. However, changes in the
+Docker container will **not** be propagated back to OS X. This isn't a 
+problem for most development scenarios, but time permitting, I'll be looking
+into using [Unison](http://www.cis.upenn.edu/~bcpierce/unison/) to support
+two-way sync. The biggest limitation at the moment is getting a build of 
+Unison that will run on the Boot2Docker VM.
 
 # Alternatives
 

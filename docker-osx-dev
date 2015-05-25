@@ -30,6 +30,9 @@ readonly BOOT2DOCKER_REMOTE_SHELL_CMD="ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHost
 readonly BOOT2DOCKER_USER="docker"
 readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 
+# docker-compose constants
+readonly DOCKER_COMPOSE_FILE="docker-compose.yml"
+
 # Sync and watch constants
 readonly DEFAULT_PATHS_TO_SYNC=(".")
 readonly DEFAULT_EXCLUDES=(".git" ".vagrant" "*.swp")
@@ -253,12 +256,13 @@ function watch_and_sync {
 # Prints the usage instructions for this script to stdout.
 # 
 function instructions {
-  echo -e "Usage: docker-osx-dev [-s PATH] [-e PATH] [-l LOG_LEVEL] [-h]"
+  echo -e "Usage: docker-osx-dev [-s PATH] [-e PATH] [-l LOG_LEVEL] [-c DOCKER_COMPOSE_FILE] [-h]"
   echo -e 
   echo -e "Options, if supplied, have the following meanings:" 
   echo -e 
   echo -e "-s PATH\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
   echo -e "-e PATH\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
+  echo -e "-c DOCKER_COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DOCKER_COMPOSE_FILE"
   echo -e "-l LOG_LEVEL\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "-h\t\tPrint this help text."
   echo -e 
@@ -278,6 +282,37 @@ function instructions {
 }
 
 #
+# Usage: load_paths_from_docker_compose DOCKER_COMPOSE_FILE
+#
+# Parses out all volumes: entries from the docker-compose file 
+# DOCKER_COMPOSE_FILE. This is a very hacky function that just uses regex
+# instead of a proper yaml parser. If it proves to be fragile, it will need to
+# be replaced.
+#
+function load_paths_from_docker_compose {
+  local readonly yaml_file_path="$1"
+
+  local in_volumes_block=false
+  local paths=()
+  while read line ; do
+    if $in_volumes_block ; then
+      if [[ "${line:0:2}" = "- " ]]; then
+        local readonly path=$(echo $line | sed -e "s/- \(.*\):.*$/\1/")
+        paths+=("$path")
+      else
+        in_volumes_block=false
+      fi
+    else
+      if [[ "$line" = "volumes:" ]]; then
+        in_volumes_block=true
+      fi
+    fi
+  done < "$yaml_file_path"
+
+  echo "${paths[@]}"
+}
+
+#
 # Usage handle_command ARGS ...
 #
 # Parses ARGS to kick off this script. See the output of the instructions 
@@ -285,15 +320,20 @@ function instructions {
 #
 function handle_command {
   local paths_to_sync=()
-  local excludes=()
+  local excludes=()  
+  local docker_compose_file=""
+  local docker_compose_paths=()
 
-  while getopts ":s::e::l::h" opt; do
+  while getopts ":s::e::c::l::h" opt; do
     case "$opt" in
       s)
         paths_to_sync+=("$OPTARG")
         ;;
       e)
         excludes+=("$OPTARG")
+        ;;
+      c)
+        docker_compose_file="$OPTARG"
         ;;
       l)
         local readonly level="$OPTARG"
@@ -323,11 +363,26 @@ function handle_command {
     esac
   done
 
-  if [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
-    paths_to_sync=("${DEFAULT_PATHS_TO_SYNC[@]}")
+  if [[ -z "$docker_compose_file" ]]; then
+    docker_compose_file="$DOCKER_COMPOSE_FILE"
   fi
 
+  if [[ -f "$docker_compose_file" ]]; then
+    docker_compose_paths=($(load_paths_from_docker_compose "$docker_compose_file"))
+  fi
+
+  if [[ "${#docker_compose_paths}" -gt 0 ]]; then
+    log_info "Syncing paths from Docker Compose file at $docker_compose_file"
+    paths_to_sync=("${docker_compose_paths[@]}")
+  elif [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
+    log_debug "Using default sync paths"
+    paths_to_sync=("${DEFAULT_PATHS_TO_SYNC[@]}")
+  else
+    log_debug "Using sync paths from command line args"
+  fi
+  
   if [[ "${#excludes[@]}" -eq 0 ]]; then
+    log_debug "Using default exclude paths"
     excludes=("${DEFAULT_EXCLUDES[@]}")
   fi
 
