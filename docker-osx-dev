@@ -191,11 +191,7 @@ function do_rsync {
   local readonly excludes="${EXCLUDES[@]/#/--exclude }"
   local readonly rsh_flag="--rsh=\"$BOOT2DOCKER_REMOTE_SHELL_CMD\""
 
-  # Used to ensure all the parent directories exist before rsyncing  
-  # http://www.schwertly.com/2013/07/forcing-rsync-to-create-a-remote-path-using-rsync-path/
-  local readonly rsync_path="--rsync-path=\"sudo mkdir -p $parent_folder && sudo chown -R $BOOT2DOCKER_USER $parent_folder && rsync\""
-
-  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $rsync_path $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
+  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
   log_debug "$rsync_cmd"
 
   eval "$rsync_cmd" 2>&1 | log_debug
@@ -218,6 +214,48 @@ function sync {
   for path in "${paths_to_sync[@]}"; do
     do_rsync "$path"
   done
+}
+
+#
+# Usage: join SEPARATOR ARRAY
+#
+# Joins the elements of ARRAY with the SEPARATOR character between them.
+# 
+# Examples:
+#
+# join ", " ("A" "B" "C")
+#   Returns: "A, B, C"
+#
+function join {
+  local readonly IFS="$1"
+  shift
+  echo "$*"
+}
+
+#
+# Usage: initial_sync PATHS
+#
+# Perform the initial sync of PATHS to the Boot2Docker VM, including setting up
+# all necessary parent directories and permissions.
+#
+function initial_sync {
+  local readonly paths_to_sync=("$@")
+
+  local dirs_to_create=()
+  for path in "${paths_to_sync[@]}"; do
+    local readonly parent_dir=$(dirname "$path")
+    dirs_to_create+=("$parent_dir")
+  done  
+
+  local readonly dir_string=$(join " " "${dirs_to_create[@]}")
+  local readonly mkdir_string="sudo mkdir -p $dir_string"
+  local readonly chown_string="sudo chown -R $BOOT2DOCKER_USER $dir_string"
+  local readonly ssh_cmd="$mkdir_string && $chown_string"
+
+  log_debug "Creating parent directories in Docker VM: $ssh_cmd"
+  boot2docker ssh "$ssh_cmd"
+
+  sync "${paths_to_sync[@]}"
 }
 
 #
@@ -247,7 +285,7 @@ function watch {
 # that will keep those paths in sync.
 #
 function watch_and_sync {
-  sync "${PATHS_TO_SYNC[@]}"
+  initial_sync "${PATHS_TO_SYNC[@]}"
   watch
 }
 
