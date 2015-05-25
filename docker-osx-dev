@@ -31,7 +31,7 @@ readonly BOOT2DOCKER_USER="docker"
 readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 
 # docker-compose constants
-readonly DOCKER_COMPOSE_FILE="docker-compose.yml"
+readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
 
 # Sync and watch constants
 readonly DEFAULT_PATHS_TO_SYNC=(".")
@@ -303,7 +303,7 @@ function instructions {
   echo -e 
   echo -e "-s PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
   echo -e "-e PATH\t\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
-  echo -e "-c COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DOCKER_COMPOSE_FILE"
+  echo -e "-c COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DEFAULT_COMPOSE_FILE"
   echo -e "-c IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing. Default: $DEFAULT_IGNORE_FILE"
   echo -e "-l LOG_LEVEL\t\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "-h\t\t\tPrint this help text."
@@ -333,38 +333,130 @@ function instructions {
 #
 function load_paths_from_docker_compose {
   local readonly yaml_file_path="$1"
-
   local in_volumes_block=false
   local paths=()
-  while read line; do
-    if $in_volumes_block; then
-      if [[ "${line:0:2}" = "- " ]]; then
-        local readonly path=$(echo $line | sed -e "s/- \(.*\):.*$/\1/")
-        paths+=("$path")
+
+  if [[ -f "$yaml_file_path" ]]; then
+    while read line; do
+      if $in_volumes_block; then
+        if [[ "${line:0:2}" = "- " ]]; then
+          local readonly path=$(echo $line | sed -e "s/- \(.*\):.*$/\1/")
+          paths+=("$path")
+        else
+          in_volumes_block=false
+        fi
       else
-        in_volumes_block=false
+        if [[ "$line" = "volumes:" ]]; then
+          in_volumes_block=true
+        fi
       fi
-    else
-      if [[ "$line" = "volumes:" ]]; then
-        in_volumes_block=true
-      fi
-    fi
-  done < "$yaml_file_path"
+    done < "$yaml_file_path"
+  fi
 
   echo "${paths[@]}"
 }
 
+#
+# Usage: load_ignore_paths IGNORE_FILE
+#
+# Parse the paths from IGNORE_FILE that are of the format used by .gitignore: 
+# that is, each line contains a single path, and lines that start with a pound
+# sign are treated as comments.
+#
 function load_ignore_paths {
   local readonly ignore_file="$1"
-
   local paths=()
-  while read line; do
-    if [[ "${line:0:1}" != "#" ]]; then
-      paths+=("$line")
-    fi
-  done < "$ignore_file"
+
+  if [[ -f "$ignore_file" ]]; then
+    while read line; do
+      if [[ "${line:0:1}" != "#" ]]; then
+        paths+=("$line")
+      fi
+    done < "$ignore_file"
+  fi
 
   echo "${paths[@]}"
+}
+
+#
+# Usage: set_log_level LEVEL
+#
+# Set the logging level to LEVEL. LEVEL must be one of the values in LOG_LEVELS.
+#
+function configure_log_level {
+  local readonly level="${1:-$DEFAULT_LOG_LEVEL}"
+  local readonly index=$(index_of "$level" "${LOG_LEVELS[@]}")
+  
+  if [[ "$index" -ge 0 ]]; then
+    CURRENT_LOG_LEVEL="$level"
+  else
+    log_error "Invalid log level specified: $level"
+    instructions
+    exit 1
+  fi  
+}
+
+#
+# Usage: configure_paths_to_sync COMPOSE_FILE [PATHS_FROM_CMD_LINE ...]
+#
+# Set the paths that should be synced to the Boot2Docker VM. PATHS_FROM_CMD_LINE 
+# are paths specified as command line arguments and will take precedence. If 
+# none are specified, this function will try to read the docker-compose file at
+# COMPOSE_FILE and load volumes from it. If that fails, this function will fall
+# back to the DEFAULT_PATHS_TO_SYNC.
+#
+function configure_paths_to_sync {
+  local readonly compose_file="${1:-$DEFAULT_COMPOSE_FILE}"
+  shift
+  local readonly paths_to_sync_from_cmd_line=("$@")
+  local readonly paths_to_sync_from_compose_file=($(load_paths_from_docker_compose "$compose_file"))
+
+  log_info "compose_file = $compose_file, paths_to_sync_from_cmd_line = ${paths_to_sync_from_cmd_line[@]}, paths_to_sync_from_compose_file = ${paths_to_sync_from_compose_file[@]}"
+
+  local paths_to_sync=()
+  if [[ "${#paths_to_sync_from_cmd_line[@]}" -gt 0 ]]; then    
+    paths_to_sync=("${paths_to_sync_from_cmd_line[@]}")
+    log_debug "Using sync paths from command line args: ${paths_to_sync[@]}"
+  elif [[ "${#paths_to_sync_from_compose_file}" -gt 0 ]]; then
+    paths_to_sync=("${paths_to_sync_from_compose_file[@]}")
+    log_info "Using sync paths from Docker Compose file at $compose_file: ${paths_to_sync[@]}"
+  else
+    paths_to_sync=("${DEFAULT_PATHS_TO_SYNC[@]}")
+    log_debug "Using default sync paths: ${paths_to_sync[@]}"
+  fi
+
+  for path in "${paths_to_sync[@]}"; do
+    local normalized_path=$(greadlink -m "$path")
+    PATHS_TO_SYNC+=("$normalized_path")
+  done  
+}
+
+#
+# Usage: configure_excludes IGNORE_FILE [EXCLUDE_PATHS_FROM_CMD_LINE ...]
+#
+# Sets the paths that should be excluded when syncing files to the Boot2Docker
+# VM. EXCLUDE_PATHS_FROM_CMD_LINE are paths specified as command line arguments
+# and will take precedence. If none are specified, this function will try to 
+# read the ignore file (see load_ignore_paths) at IGNORE_FILE and use those 
+# entries as excludes. If that fails, this function will fall back to 
+# DEFAULT_EXCLUDES.
+#
+function configure_excludes {
+  local readonly ignore_file="${1:-$DEFAULT_IGNORE_FILE}"
+  shift
+  local readonly excludes_from_cmd_line=("$@")
+  local readonly excludes_from_ignore_file=($(load_ignore_paths "$ignore_file"))
+
+  if [[ "${#excludes_from_cmd_line}" -gt 0 ]]; then
+    EXCLUDES=("${excludes_from_cmd_line[@]}")
+    log_debug "Using exclude paths from command line args: ${EXCLUDES[@]}"
+  elif [[ "${#excludes_from_ignore_file}" -gt 0 ]]; then
+    EXCLUDES=("${excludes_from_ignore_file[@]}")
+    log_info "Using excludes from ignore file $ignore_file: ${EXCLUDES[@]}"
+  else
+    EXCLUDES=("${DEFAULT_EXCLUDES[@]}")    
+    log_debug "Using default exclude paths: ${EXCLUDES[@]}"
+  fi
 }
 
 #
@@ -377,9 +469,8 @@ function handle_command {
   local paths_to_sync=()
   local excludes=()  
   local docker_compose_file=""
-  local docker_compose_paths=()
   local ignore_file=""
-  local ignore_paths=()
+  local log_level=""
 
   while getopts ":s::e::c::l::i::h" opt; do
     case "$opt" in
@@ -396,15 +487,7 @@ function handle_command {
         ignore_file="$OPTARG"
         ;;
       l)
-        local readonly level="$OPTARG"
-        local readonly index=$(index_of "$level" "${LOG_LEVELS[@]}")
-        if [[ "$index" -ge 0 ]]; then
-          CURRENT_LOG_LEVEL="$level"
-        else
-          log_error "Invalid log level specified: $level"
-          instructions
-          exit 1
-        fi
+        log_level="$OPTARG"
         ;;
       h)
         instructions
@@ -423,47 +506,9 @@ function handle_command {
     esac
   done
 
-  if [[ -z "$docker_compose_file" ]]; then
-    docker_compose_file="$DOCKER_COMPOSE_FILE"
-  fi
-
-  if [[ -f "$docker_compose_file" ]]; then
-    docker_compose_paths=($(load_paths_from_docker_compose "$docker_compose_file"))
-  fi
-
-  if [[ "${#docker_compose_paths}" -gt 0 ]]; then
-    log_info "Using sync paths from Docker Compose file at $docker_compose_file"
-    paths_to_sync=("${docker_compose_paths[@]}")
-  elif [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
-    log_debug "Using default sync paths"
-    paths_to_sync=("${DEFAULT_PATHS_TO_SYNC[@]}")
-  else
-    log_debug "Using sync paths from command line args"
-  fi
-  
-  for path in "${paths_to_sync[@]}"; do
-    local normalized_path=$(greadlink -m "$path")
-    PATHS_TO_SYNC+=("$normalized_path")
-  done
-
-  if [[ -z "$ignore_file" ]]; then
-    ignore_file="$DEFAULT_IGNORE_FILE"
-  fi
-
-  if [[ -f "$ignore_file" ]]; then
-    ignore_paths=($(load_ignore_paths "$ignore_file"))
-  fi
-
-  if [[ "${#ignore_paths}" -gt 0 ]]; then
-    log_info "Using excludes from $ignore_file"
-    EXCLUDES=("${ignore_paths[@]}")
-  elif [[ "${#excludes[@]}" -eq 0 ]]; then
-    log_debug "Using default exclude paths"
-    EXCLUDES=("${DEFAULT_EXCLUDES[@]}")    
-  else
-    log_debug "Using exclude paths from command line args"
-    EXCLUDES=("${excludes[@]}")
-  fi
+  configure_log_level "$log_level"
+  configure_paths_to_sync "$docker_compose_file" "${paths_to_sync[@]}"
+  configure_excludes "$ignore_file" "${excludes[@]}"
 
   watch_and_sync
 }
