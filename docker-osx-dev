@@ -379,7 +379,7 @@ function load_ignore_paths {
 }
 
 #
-# Usage: set_log_level LEVEL
+# Usage: configure_log_level LEVEL
 #
 # Set the logging level to LEVEL. LEVEL must be one of the values in LOG_LEVELS.
 #
