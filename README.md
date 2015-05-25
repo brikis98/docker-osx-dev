@@ -213,3 +213,12 @@ doesn't work out:
 # License
 
 This code is released under the MIT License. See LICENSE.txt.
+
+# Changelog
+
+* 05/25/15: Second version released. Removes Vagrant dependency and uses just
+  rsync + Boot2Docker. If you had installed the first version, you should 
+  delete your `Vagrantfile`, delete the old version of 
+  `/usr/local/bin/docker-osx-dev`, and re-run the `setup.sh` script.
+* 05/19/15: Initial version released. Uses Vagrant + rsync + Boot2Docker.
+
