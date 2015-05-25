@@ -459,6 +459,17 @@ function add_docker_host {
   fi
 }
 
+#
+# Prints instructions on what the user should do next
+#
+function print_next_steps {
+  log_info "docker-osx-dev setup has completed successfully."
+  log_instructions "You can now start file syncing using the docker-osx-dev" \
+    "script and run Docker containers using docker run. Example:\n\t" \
+    "> docker-osx-dev\n\t" \
+    '> docker run -v $(pwd):/src some-docker-container'
+}
+
 check_prerequisites "$@"
 install_dependencies "$@"
 init_boot2docker "$@"
@@ -466,3 +477,4 @@ install_rsync_on_boot2docker "$@"
 install_local_scripts "$@"
 add_docker_host "$@"
 add_environment_variables "$@"
+print_next_steps "$@"
