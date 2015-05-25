@@ -359,9 +359,9 @@ function load_paths_from_docker_compose {
 #
 # Usage: load_ignore_paths IGNORE_FILE
 #
-# Parse the paths from IGNORE_FILE that are of the format used by .gitignore: 
-# that is, each line contains a single path, and lines that start with a pound
-# sign are treated as comments.
+# Parse the paths from IGNORE_FILE that are of the format used by .gitignore and
+# .dockerignore: that is, each line contains a single path, and lines that 
+# start with a pound sign are treated as comments.
 #
 function load_ignore_paths {
   local readonly ignore_file="$1"
