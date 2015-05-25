@@ -56,20 +56,11 @@ function create_test_project {
   echo "$TEST_FILE_CONTENTS" > "$TEST_FILE"
 }
 
-function test_docker_osx_dev_start {
-  log_info "Running docker-osx-dev init and start."
-  log_info "Looking up available memory:"
-  top -l 1 | grep PhysMem
-  # We're just looking for the scripts to run without errors  
-  docker-osx-dev init
-  
-  # Temporarily disable this to investigate a build failure in Circle CI
-  # by enabling debugging in vagrant
-  # docker-osx-dev start
-  VAGRANT_LOG=debug vagrant up
+function test_docker_osx_dev {
+  log_info "Running docker-osx-dev"
 
-  log_info "Contents of VBox.log:"
-  cat ~/VirtualBox\ VMs/${TEST_FOLDER}_boot2docker/Logs/VBox.log
+  # This should start syncing in the background
+  docker-osx-dev &
 }
 
 function test_docker_run {
@@ -84,15 +75,8 @@ function test_docker_mount {
   assert_equals "$out" "$TEST_FILE_CONTENTS"
 }
 
-function test_docker_osx_dev_stop {
-  log_info "Testing docker-osx-dev stop"
-  # We're just looking for the scripts to run without errors  
-  docker-osx-dev stop
-}
-
 test_setup
 create_test_project
-test_docker_osx_dev_start
+test_docker_osx_dev
 test_docker_run
 test_docker_mount
-test_docker_osx_dev_stop
