@@ -36,7 +36,8 @@ will continue to use these hacky scripts to keep myself productive.
 
 Prerequisite: [HomeBrew](http://brew.sh/) must be installed.
 
-Use the `setup.sh` script to setup a Docker development environment on OS X:
+The `setup.sh` script can to setup your entire Docker development environment 
+on OS X, including install Docker, Boot2Docker, and docker-osx-dev:
 
 ```sh
 curl https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/setup.sh | bash
@@ -55,22 +56,24 @@ Three notes about the `setup.sh` script:
 # Usage
 
 The `setup.sh` script will install, configure, and run Boot2Docker on your 
-system, so the only thing left to do is to tell it what folders to sync using
-rsync using the `docker-osx-dev` script. If you run it with no arguments, it
-will sync the current folder to the Boot2Docker VM:
+system, so the only thing left to do is to tell it what folders to sync using 
+the `docker-osx-dev` script. If you run it with no arguments, it will sync the 
+current folder to the Boot2Docker VM:
 
 ```
 > cd /foo/bar
 > docker-osx-dev
-[INFO] Watching /foo/bar
+[INFO] Performing initial sync of paths: /foo/bar
+[INFO] Watching: /foo/bar
 ```
 
-Alternatively, you can also use the `-s` flag to specify what folders to sync
+Alternatively, you can use the `-s` flag to specify what folders to sync
 (run `docker-sox-dev -h` to see all supported options):
 
 ```
 > docker-osx-dev -s /foo/bar
-[INFO] Watching /foo/bar
+[INFO] Performing initial sync of paths: /foo/bar
+[INFO] Watching: /foo/bar
 ```
 
 Now, in a separate tab, you can run a Docker container and mount the current
@@ -90,11 +93,11 @@ As you make changes to the files in the `/foo/bar` folder on OS X, using the
 text editors, IDEs, and tools you're used to, they will be automatically
 synced to the `/src` folder in the Docker image. Moreover, file watchers should 
 work normally in the Docker container for any framework that supports hot 
-reload (e.g. Grunt, SBT, Jekyll) using inotify (instead of polling), so you 
-should be able to use a "make a change and refresh the page" development model.
+reload (e.g. Grunt, SBT, Jekyll) without any need for polling, so you should be 
+able to follow a "make a change and refresh the page" development model.
 
 If you are using [Docker Compose](https://docs.docker.com/compose/), 
-docker-osx-dev will automatically use rsync to mount any folders marked as
+docker-osx-dev will automatically sync any folders marked as
 [volumes](https://docs.docker.com/compose/yml/#volumes) in `docker-compose.yml`. 
 For example, let's say you had the following `docker-compose.yml` file:
 
@@ -113,8 +116,9 @@ First, run `docker-osx-dev`:
 
 ```
 > docker-osx-dev
-[INFO] Found docker-compose.yml
-[INFO] Watching /foo
+[INFO] Using sync paths from Docker Compose file at docker-compose.yml
+[INFO] Performing initial sync of paths: /foo
+[INFO] Watching: /foo
 ```
 
 Notice how it automatically found `/foo` in the `docker-compose.yml` file. 
@@ -127,9 +131,8 @@ docker-compose up
 This will fire up a [Postgres 
 database](https://registry.hub.docker.com/u/library/postgres/) and the [training 
 webapp](https://registry.hub.docker.com/u/training/webapp/) (a simple "Hello, 
-World" Python app), mount the `/foo` folder into `/src` in the webapp container 
-(which docker-osx-dev will keep in sync using rsync), and expose port 5000. You 
-can now test this webapp by going to:
+World" Python app), mount the `/foo` folder into `/src` in the webapp container, 
+and expose port 5000. You can now test this webapp by going to:
 
 ```
 http://dockerhost:5000
@@ -149,7 +152,7 @@ The `setup.sh` script installs all the software you need:
 5. [fswatch](https://github.com/emcrisostomo/fswatch)
 6. The `docker-osx-dev` script which you can use to start/stop file syncing
 
-The `setup.sh` also:
+The `setup.sh` script also:
 
 1. Adds the Docker environment variables to your environment file (e.g. 
    `~/.bash_profile`) so it is available at startup.
@@ -162,7 +165,8 @@ watch for changes and [rsync](http://en.wikipedia.org/wiki/Rsync) to quickly
 sync the files to the Boot2Docker VM. By default, the current source folder 
 (i.e. the one you're in when you run `docker-osx-dev`) is synced. If you use 
 `docker-compose`, docker-osx-dev will sync any folders marked as 
-[volumes](https://docs.docker.com/compose/yml/#volumes).
+[volumes](https://docs.docker.com/compose/yml/#volumes). Run `docker-osx-dev -h`
+to see all the other options supported.
 
 # Limitations and known issues
 
