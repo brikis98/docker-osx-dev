@@ -147,6 +147,28 @@ function do_log {
 }
 
 #
+# Usage: find_path_to_sync_parent PATH
+#
+# Finds the parent folder of PATH from the PATHS_TO_SYNC global variable. When
+# using rsync, we want to sync the exact folders the user specified when 
+# running the docker-osx-dev script. However, when we we use fswatch, it gives
+# us the path of files that changed, which may be deeply nested inside one of 
+# the folders we're supposed to keep in sync. Therefore, this function lets us
+# transform one of these nested paths back to one of the top level rsync paths.
+#
+function find_path_to_sync_parent {
+  local readonly path="$1"
+  local readonly normalized_path=$(greadlink -m "$path")
+
+  for path_to_sync in "${PATHS_TO_SYNC[@]}"; do
+    if [[ "$normalized_path" == $path_to_sync* ]]; then
+      echo "$path_to_sync"
+      return
+    fi
+  done
+}
+
+#
 # Usage: rsync PATH
 # 
 # Uses rsync to sync PATH to the same PATH on the Boot2Docker VM.
@@ -158,8 +180,8 @@ function do_log {
 #
 function do_rsync {
   local readonly path="$1"
-  local readonly normalized_path=$(greadlink -m "$path")
-  local readonly parent_folder=$(dirname "$normalized_path")
+  local readonly path_to_sync=$(find_path_to_sync_parent "$path")
+  local readonly parent_folder=$(dirname "$path_to_sync")
 
   local readonly flags="${RSYNC_FLAGS[@]/#/--}"
   local readonly excludes="${EXCLUDES[@]/#/--exclude }"
@@ -169,8 +191,9 @@ function do_rsync {
   # http://www.schwertly.com/2013/07/forcing-rsync-to-create-a-remote-path-using-rsync-path/
   local readonly rsync_path="--rsync-path=\"sudo mkdir -p $parent_folder && sudo chown -R $BOOT2DOCKER_USER $parent_folder && rsync\""
 
-  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $rsync_path $normalized_path $BOOT2DOCKER_SSH_URL:$parent_folder"
+  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $rsync_path $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
   log_debug "$rsync_cmd"
+
   eval "$rsync_cmd" 2>&1 | log_debug
 }
 
@@ -188,8 +211,7 @@ function do_rsync {
 function sync {
   local readonly paths_to_sync=("$@")
 
-  for path in "${paths_to_sync[@]}"
-  do
+  for path in "${paths_to_sync[@]}"; do
     do_rsync "$path"
   done
 }
@@ -262,13 +284,16 @@ function instructions {
 # function for details.
 #
 function handle_command {
+  local paths_to_sync=()
+  local excludes=()
+
   while getopts ":s::e::l::h" opt; do
     case "$opt" in
       s)
-        PATHS_TO_SYNC+=("$OPTARG")
+        paths_to_sync+=("$OPTARG")
         ;;
       e)
-        EXCLUDES+=("$OPTARG")
+        excludes+=("$OPTARG")
         ;;
       l)
         local readonly level="$OPTARG"
@@ -298,13 +323,20 @@ function handle_command {
     esac
   done
 
-  if [[ "${#PATHS_TO_SYNC[@]}" -eq 0 ]]; then
-    PATHS_TO_SYNC=("${DEFAULT_PATHS_TO_SYNC[@]}")
+  if [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
+    paths_to_sync=("${DEFAULT_PATHS_TO_SYNC[@]}")
   fi
 
-  if [[ "${#EXCLUDES[@]}" -eq 0 ]]; then
-    EXCLUDES=("${DEFAULT_EXCLUDES[@]}")
+  if [[ "${#excludes[@]}" -eq 0 ]]; then
+    excludes=("${DEFAULT_EXCLUDES[@]}")
   fi
+
+  for path in "${paths_to_sync[@]}" ; do
+    local normalized_path=$(greadlink -m "$path")
+    PATHS_TO_SYNC+=("$normalized_path")
+  done
+
+  EXCLUDES=("${excludes[@]}")
 
   watch_and_sync
 }
