@@ -21,7 +21,6 @@ readonly LOG_LEVEL_ERROR="ERROR"
 readonly LOG_LEVEL_INSTRUCTIONS="INSTRUCTIONS"
 readonly LOG_LEVELS=($LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS)
 readonly DEFAULT_LOG_LEVEL="$LOG_LEVEL_INFO"
-CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 
 # Boot2Docker constants
 readonly DOCKER_HOST_NAME="dockerhost"
@@ -38,8 +37,12 @@ readonly DEFAULT_PATHS_TO_SYNC=(".")
 readonly DEFAULT_EXCLUDES=(".git")
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
 readonly RSYNC_FLAGS=("archive" "verbose" "delete" "omit-dir-times" "inplace" "whole-file")
+
+# Global variables. The should only ever be set by the corresponding 
+# configure_XXX functions.
 PATHS_TO_SYNC=()
 EXCLUDES=()
+CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 
 # Helper function to log an INFO message. See the log function for details.
 function log_info {
