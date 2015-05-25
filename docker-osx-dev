@@ -411,8 +411,6 @@ function configure_paths_to_sync {
   local readonly paths_to_sync_from_cmd_line=("$@")
   local readonly paths_to_sync_from_compose_file=($(load_paths_from_docker_compose "$compose_file"))
 
-  log_info "compose_file = $compose_file, paths_to_sync_from_cmd_line = ${paths_to_sync_from_cmd_line[@]}, paths_to_sync_from_compose_file = ${paths_to_sync_from_compose_file[@]}"
-
   local paths_to_sync=()
   if [[ "${#paths_to_sync_from_cmd_line[@]}" -gt 0 ]]; then    
     paths_to_sync=("${paths_to_sync_from_cmd_line[@]}")
