@@ -36,7 +36,7 @@ will continue to use these hacky scripts to keep myself productive.
 
 Prerequisite: [HomeBrew](http://brew.sh/) must be installed.
 
-The `setup.sh` script can to setup your entire Docker development environment 
+The `setup.sh` script can setup your entire Docker development environment 
 on OS X, including install Docker, Boot2Docker, and docker-osx-dev:
 
 ```sh
