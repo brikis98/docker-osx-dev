@@ -36,7 +36,7 @@ will continue to use these hacky scripts to keep myself productive.
 
 Prerequisite: [HomeBrew](http://brew.sh/) must be installed.
 
-To install docker-osx-dev and all of its dependencies, run:
+Use the `setup.sh` script to setup a Docker development environment on OS X:
 
 ```sh
 curl https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/setup.sh | bash
@@ -49,6 +49,8 @@ Three notes about the `setup.sh` script:
 2. When `setup.sh` completes, it prints out instructions for one `source` 
    command you have to run to pick up important environment variables in your 
    current shell, so make sure not to skip that step!
+3. The script installs the `docker-osx-dev` script that you can use for file
+   syncing, as described in the next section.
 
 # Usage
 
