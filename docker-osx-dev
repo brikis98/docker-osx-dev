@@ -307,7 +307,7 @@ function instructions {
   echo -e "-s PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
   echo -e "-e PATH\t\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
   echo -e "-c COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DEFAULT_COMPOSE_FILE"
-  echo -e "-c IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing. Default: $DEFAULT_IGNORE_FILE"
+  echo -e "-i IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing. Default: $DEFAULT_IGNORE_FILE"
   echo -e "-l LOG_LEVEL\t\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "-h\t\t\tPrint this help text."
   echo -e 
