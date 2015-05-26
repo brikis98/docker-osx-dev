@@ -428,19 +428,17 @@ function add_environment_variables {
 #
 function install_local_scripts {
   local readonly script_path="$BIN_DIR/$DOCKER_OSX_DEV_SCRIPT_NAME"
-  if [[ -f "$script_path" ]]; then
-    log_warn "$script_path already exists, will not overwrite"
+  log_info "Adding $script_path"
+
+  # TODO: quick hack to read in cmd line params. If this script supports others,
+  # this will need to be moved to a different function!
+  if [[ "$#" -eq 2 && "$1" = "--script-path" ]]; then
+    cp "$2" "$script_path"
   else
-    log_info "Adding $script_path"
-
-    if [[ "$#" -eq 2 && "$1" = "--script-path" ]]; then
-      cp "$2" "$script_path"
-    else
-      curl -L "$DOCKER_OSX_DEV_URL" > "$script_path"
-    fi
-
-    chmod +x "$script_path"
+    curl -L "$DOCKER_OSX_DEV_URL" > "$script_path"
   fi
+
+  chmod +x "$script_path"
 }
 
 #
