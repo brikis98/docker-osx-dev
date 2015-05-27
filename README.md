@@ -178,6 +178,24 @@ into using [Unison](http://www.cis.upenn.edu/~bcpierce/unison/) to support
 two-way sync. The biggest limitation at the moment is getting a build of 
 Unison that will run on the Boot2Docker VM.
 
+# Contributing
+
+Contributions are very welcome via pull request. This project is in a very early
+alpha stage and it needs a lot of work. Take a look at the 
+[issues](https://github.com/brikis98/docker-osx-dev/issues) for known bugs and
+enhancements, especially the ones marked with the 
+[help wanted](https://github.com/brikis98/docker-osx-dev/labels/help%20wanted)
+tag. 
+
+Note: I started to setup integration tests for this project (see `test.sh` and
+`circle.yml`), but have hit a wall. This project is inherently about running
+a VM (Boot2Docker in VirtualBox), and as most CI providers (e.g. TravisCI and 
+CircleCI) run your build in their own VM, this would require running a 
+VM-in-a-VM. As described in [#7](https://github.com/brikis98/docker-osx-dev/issues/7),
+I can't find any way to make this work. If anyone has any ideas, please take a 
+look! In the meantime, I could use help in adding unit tests that don't rely on
+a VM as described in [#27](https://github.com/brikis98/docker-osx-dev/issues/27).
+
 # Alternatives
 
 Below are some of the other solutions I tried to make Docker productive on OS X
