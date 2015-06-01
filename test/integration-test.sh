@@ -46,7 +46,7 @@ function assert_equals {
 function test_setup {
   log_info "Testing setup.sh script"
   # We're just looking for the script to run without errors
-  ./setup.sh --script-path ./docker-osx-dev
+  ./setup.sh -s ./docker-osx-dev
 }
 
 function create_test_project {

@@ -420,22 +420,22 @@ function add_environment_variables {
 }
 
 #
-# Usage: install_local-scripts [--script-path SCRIPT_PATH]
+# Usage: install_local-scripts [LOCAL_SCRIPT_PATH]
 #
-# Installs the local docker-osx-dev script. If the --script-path flag is 
-# specified, copies the script from SCRIPT_PATH (this is mostly useful for 
+# Installs the local docker-osx-dev script. If the LOCAL_SCRIPT_PATH is 
+# specified, copies the script from LOCAL_SCRIPT_PATH (this is mostly useful for 
 # testing). Otherwise, downloads the latest version of the script from GitHub.
 #
 function install_local_scripts {
+  local readonly local_script_path="$1"
   local readonly script_path="$BIN_DIR/$DOCKER_OSX_DEV_SCRIPT_NAME"
-  log_info "Adding $script_path"
 
-  # TODO: quick hack to read in cmd line params. If this script supports others,
-  # this will need to be moved to a different function!
-  if [[ "$#" -eq 2 && "$1" = "--script-path" ]]; then
-    cp "$2" "$script_path"
-  else
+  if [[ -z "$local_script_path" ]]; then
+    log_info "Adding $script_path from $DOCKER_OSX_DEV_URL"
     curl -L "$DOCKER_OSX_DEV_URL" > "$script_path"
+  else
+    log_info "Adding $script_path from $local_script_path"
+    cp "$local_script_path" "$script_path"
   fi
 
   chmod +x "$script_path"
@@ -468,11 +468,42 @@ function print_next_steps {
     '> docker run -v $(pwd):/src some-docker-container'
 }
 
-check_prerequisites "$@"
-install_dependencies "$@"
-init_boot2docker "$@"
-install_rsync_on_boot2docker "$@"
-install_local_scripts "$@"
-add_docker_host "$@"
-add_environment_variables "$@"
-print_next_steps "$@"
+#
+# Usage handle_command ARGS ...
+#
+# Parses ARGS to kick off this script.
+#
+function handle_command {
+  local local_script_path=""
+
+  while getopts ":s::t" opt; do
+    case "$opt" in
+      s)
+        local_script_path="$OPTARG"
+        ;;
+      t)
+        # Used for testing only
+        return 0
+        ;;
+      :)
+        log_error "Option -$OPTARG requires an argument"
+        exit 1
+        ;;
+      \?) 
+        log_error "Invalid option: -$OPTARG"
+        exit 1
+        ;;
+    esac
+  done
+
+  check_prerequisites
+  install_dependencies
+  init_boot2docker
+  install_rsync_on_boot2docker
+  install_local_scripts "$local_script_path"
+  add_docker_host
+  add_environment_variables
+  print_next_steps
+}
+
+handle_command "$@"
