@@ -39,27 +39,27 @@ readonly DOCKER_OSX_DEV_URL="https://raw.githubusercontent.com/brikis98/docker-o
 
 # Helper function to log an INFO message. See the log function for details.
 function log_info {
-  log $COLOR_INFO $LOG_LEVEL_INFO "$@"
+  log $COLOR_INFO $COLOR_END $LOG_LEVEL_INFO "$@"
 }
 
 # Helper function to log a WARN message. See the log function for details.
 function log_warn {
-  log $COLOR_WARN $LOG_LEVEL_WARN "$@"
+  log $COLOR_WARN $COLOR_END $LOG_LEVEL_WARN "$@"
 }
 
 # Helper function to log a DEBUG message. See the log function for details.
 function log_debug {
-  log $COLOR_DEBUG $LOG_LEVEL_DEBUG "$@"
+  log $COLOR_DEBUG $COLOR_END $LOG_LEVEL_DEBUG "$@"
 }
 
 # Helper function to log an ERROR message. See the log function for details.
 function log_error {
-  log $COLOR_ERROR $LOG_LEVEL_ERROR "$@"
+  log $COLOR_ERROR $COLOR_END $LOG_LEVEL_ERROR "$@"
 }
 
 # Helper function to log an INSTRUCTIONS message. See the log function for details.
 function log_instructions {
-  log $COLOR_INSTRUCTIONS $LOG_LEVEL_INSTRUCTIONS "$@"
+  log $COLOR_INSTRUCTIONS $COLOR_END $LOG_LEVEL_INSTRUCTIONS "$@"
 }
 
 #
@@ -70,11 +70,16 @@ function log_instructions {
 #
 # Examples:
 #
-# index_of foo ("abc" "foo" "def")
+# arr=("abc" "foo" "def")
+# index_of foo "${arr[@]}"
 #   Returns: 1
 #
-# index_of foo ("abc" "def")
+# arr=("abc" "def")
+# index_of foo "${arr[@]}" 
 #   Returns -1
+#
+# index_of foo "abc" "def" "foo"
+#   Returns 2
 #
 function index_of {
   local readonly value="$1"
@@ -92,26 +97,26 @@ function index_of {
 }
 
 #
-# Usage: log COLOR LEVEL [MESSAGE ...]
+# Usage: log COLOR COLOR_END LEVEL [MESSAGE ...]
 #
-# Logs MESSAGE to stdout with color COLOR if the log level is at least LEVEL.
-# If no MESSAGE is specified, reads from stdin. The log level is determined by 
-# the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
+# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
+# at least LEVEL. If no MESSAGE is specified, reads from stdin. The log level is 
+# determined by the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
 #
 # Examples:
 #
-# log $COLOR_INFO $LOG_LEVEL_INFO "Hello, World"
-#   Prints: "[INFO] Hello, World" to stdout in green.
+# log "\033[0;32m" "\033[0m" "INFO" "Hello, World"
+#   Prints: "\033[0;32m[INFO] Hello, World\033[0m" to stdout.
 #
-# echo "Hello, World" | log $COLOR_RED $LOG_LEVEL_ERROR 
-#   Prints: "[ERROR] Hello, World" to stdout in red.
+# echo "Hello, World" | log "\033[0;32m" "\033[0m" "ERROR"
+#   Prints: "\033[0;32m[ERROR] Hello, World\033[0m" to stdout.
 #
 function log {
-  if [[ "$#" -gt 2 ]]; then
+  if [[ "$#" -gt 3 ]]; then
     do_log "$@"
-  elif [[ "$#" -eq 2 ]]; then
+  elif [[ "$#" -eq 3 ]]; then
     while read message; do 
-      do_log "$1" "$2" "$message"
+      do_log "$1" "$2" "$3" "$message"
     done
   else
     echo "Internal error: invalid number of arguments passed to log function: $@"
@@ -120,19 +125,21 @@ function log {
 }
 
 #
-# Usage: do_log COLOR LEVEL MESSAGE ...
+# Usage: do_log COLOR COLOR_END LEVEL MESSAGE ...
 #
-# Logs MESSAGE to stdout with color COLOR if the log level is at least LEVEL.
-# The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL environment 
-# variable.
+# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
+# at least LEVEL. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL 
+# environment variable.
 #
 # Examples:
 #
-# do_log $COLOR_INFO $LOG_LEVEL_INFO "Hello, World"
-#   Prints: "[INFO] Hello, World" to stdout in green.
+# do_log "\033[0;32m" "\033[0m" "INFO" "Hello, World"
+#   Prints: "\033[0;32m[INFO] Hello, World\033[0m" to stdout.
 #
 function do_log {
   local readonly color="$1"
+  shift
+  local readonly color_end="$1"
   shift
   local readonly log_level="$1"
   shift
@@ -142,7 +149,7 @@ function do_log {
   local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)
 
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
-    echo -e "${color}[${log_level}] ${message}${COLOR_END}"
+    echo -e "${color}[${log_level}] ${message}${color_end}"
   fi   
 }
 
@@ -187,10 +194,7 @@ function env_is_defined {
   local readonly var="$1"
   assert_non_empty "$var"
 
-  # First unset the $var in a sub-shell, and then spawn a new shell
-  # to see if it gets re-defined from its startup code.
-  local readonly setting=$(unset "$var" ;
-                           "$SHELL" -i -c -l "env | grep \"^${var}=\"")
+  local readonly setting=$(env | grep "^${var}=")
   test -n "$setting"
 }
 
