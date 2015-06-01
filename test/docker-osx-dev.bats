@@ -8,52 +8,52 @@ load test_helper
 
 @test "index_of doesn't find match in empty array" {
   array=()
-  index=$(index_of "foo" "${array[@]}")
-  assert_equal -1 "$index"
+  run index_of "foo" "${array[@]}"
+  assert_output -1
 }
 
 @test "index_of finds match in 1 item array" {
   array=("foo")
-  index=$(index_of "foo" "${array[@]}")
-  assert_equal 0 "$index"
+  run index_of "foo" "${array[@]}"
+  assert_output 0
 }
 
 @test "index_of doesn't find match in 1 item array" {
   array=("abc")
-  index=$(index_of "foo" "${array[@]}")
-  assert_equal -1 "$index"
+  run index_of "foo" "${array[@]}"
+  assert_output -1
 }
 
 @test "index_of finds match in 3 item array" {
   array=("abc" "foo" "def")
-  index=$(index_of "foo" "${array[@]}")
-  assert_equal 1 "$index"
+  run index_of "foo" "${array[@]}"
+  assert_output 1
 }
 
 @test "index_of doesn't find match in 3 item array" {
   array=("abc" "def" "ghi")
-  index=$(index_of "foo" "${array[@]}")
-  assert_equal -1 "$index"
+  run index_of "foo" "${array[@]}"
+  assert_output -1
 }
 
 @test "index_of finds match with multi argument syntax" {
-  index=$(index_of "foo" "abc" "def" "ghi" "foo")
-  assert_equal 3 "$index"
+  run index_of "foo" "abc" "def" "ghi" "foo"
+  assert_output 3
 }
 
 @test "index_of returns index of first match" {
-  index=$(index_of foo abc foo def ghi foo)
-  assert_equal 1 "$index"
+  run index_of foo abc foo def ghi foo
+  assert_output 1
 }
 
 @test "log called with color, log level, and message prints to stdout" {
-  result=$(log "color_start" "color_end" "$LOG_LEVEL_INFO" "foo")
-  assert_equal "color_start[$LOG_LEVEL_INFO] foocolor_end" "$result"
+  run log "color_start" "color_end" "$LOG_LEVEL_INFO" "foo"
+  assert_output "color_start[$LOG_LEVEL_INFO] foocolor_end"
 }
 
 @test "log called with color, log level, and multiple messages prints them all to stdout" {
-  result=$(log "color_start" "color_end" "$LOG_LEVEL_INFO" "foo" "bar" "baz")
-  assert_equal "color_start[$LOG_LEVEL_INFO] foo bar bazcolor_end" "$result"
+  run log "color_start" "color_end" "$LOG_LEVEL_INFO" "foo" "bar" "baz"
+  assert_output "color_start[$LOG_LEVEL_INFO] foo bar bazcolor_end"
 }
 
 @test "log called with color and log level reads message from stdin stdout" {
@@ -62,35 +62,58 @@ load test_helper
 }
 
 @test "log called with disabled log level prints nothing to stdout" {
-  result=$(log "color_start" "color_end" "$LOG_LEVEL_DEBUG" "foo")
-  assert_equal "" "$result"
+  run log "color_start" "color_end" "$LOG_LEVEL_DEBUG" "foo"
+  assert_output ""
 }
 
 @test "join empty arrays" {
-  result=$(join ",")
-  assert_equal "" "$result"
+  run join ","
+  assert_output ""
 }
 
 @test "join arrays of length 1" {
-  result=$(join "," "foo")
-  assert_equal "foo" "$result"
+  run join "," "foo"
+  assert_output "foo"
 }
 
 @test "join arrays of length 3" {
-  result=$(join ", " "foo" "bar" "baz")
-  assert_equal "foo, bar, baz" "$result"
+  run join ", " "foo" "bar" "baz"
+  assert_output "foo, bar, baz"
 }
 
 @test "join arrays with empty separator" {
-  result=$(join "" "foo" "bar" "baz")
-  assert_equal "foobarbaz" "$result"
+  run join "" "foo" "bar" "baz"
+  assert_output "foobarbaz"
 }
 
 @test "join arrays passed in as arguments" {
   arr=(foo bar baz)
-  result=$(join ", " "${arr[@]}")
-  assert_equal "foo, bar, baz" "$result"
+  run join ", " "${arr[@]}"
+  assert_output "foo, bar, baz"
 }
 
+@test "configure_log_level to DEBUG" {
+  configure_log_level "$LOG_LEVEL_DEBUG"
+  assert_equal "$LOG_LEVEL_DEBUG" "$CURRENT_LOG_LEVEL"
+}
 
+@test "configure_log_level to invalid value" {
+  run configure_log_level "INVALID_LOG_LEVEL"
+  assert_failure
+}
+
+@test "configure_paths_to_sync with non-existent docker-compose file results in syncing the current directory" {
+  configure_paths_to_sync "not-a-real-docker-compose-file"
+  assert_equal "$(pwd)" "$PATHS_TO_SYNC"
+}
+
+@test "configure_paths_to_sync with docker-compose file with no volumes results in syncing the current directory" {
+  configure_paths_to_sync "resources/docker-compose-no-volumes.yml"
+  assert_equal "$(pwd)" "$PATHS_TO_SYNC"
+}
+
+@test "configure_paths_to_sync reads paths to sync from docker-compose file" {
+  configure_paths_to_sync "resources/docker-compose-one-volume.yml"
+  assert_equal "/host" "$PATHS_TO_SYNC"
+}
 

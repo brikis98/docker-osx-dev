@@ -1,0 +1,13 @@
+web:
+  image: foo/bar
+  ports:
+    - "3000:3000"
+  volumes:
+    - /host:/guest
+    - abc
+    - def
+    - /a:/b
+  links:
+    - db
+db:
+  image: baz/blah

@@ -38,8 +38,8 @@ readonly RSYNC_FLAGS="--archive --verbose --delete --omit-dir-times --inplace --
 
 # Global variables. The should only ever be set by the corresponding 
 # configure_XXX functions.
-PATHS_TO_SYNC=()
-EXCLUDES=()
+PATHS_TO_SYNC=""
+EXCLUDES=""
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 BOOT2DOCKER_SSH_KEY=""
 
@@ -173,8 +173,9 @@ function do_log {
 function find_path_to_sync_parent {
   local readonly path="$1"
   local readonly normalized_path=$(greadlink -m "$path")
+  local readonly paths_to_sync=($PATHS_TO_SYNC)
 
-  for path_to_sync in "${PATHS_TO_SYNC[@]}"; do
+  for path_to_sync in "${paths_to_sync[@]}"; do
     if [[ "$normalized_path" == $path_to_sync* ]]; then
       echo "$path_to_sync"
       return
@@ -197,10 +198,11 @@ function do_rsync {
   local readonly path_to_sync=$(find_path_to_sync_parent "$path")
   local readonly parent_folder=$(dirname "$path_to_sync")
 
-  local readonly excludes="${EXCLUDES[@]/#/--exclude }"
+  local readonly excludes=($EXCLUDES)
+  local readonly exclude_flags="${excludes[@]/#/--exclude }"
   local readonly rsh_flag="--rsh=\"ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no\""
 
-  local readonly rsync_cmd="rsync $RSYNC_FLAGS $excludes $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
+  local readonly rsync_cmd="rsync $RSYNC_FLAGS $exclude_flags $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
   log_debug "$rsync_cmd"
 
   eval "$rsync_cmd" 2>&1 | log_info
@@ -278,9 +280,9 @@ function initial_sync {
 # any files that changed.
 #
 function watch {
-  log_info "Watching: ${PATHS_TO_SYNC[@]}"
+  log_info "Watching: $PATHS_TO_SYNC"
 
-  local readonly fswatch_cmd="fswatch -0 ${PATHS_TO_SYNC[@]}"
+  local readonly fswatch_cmd="fswatch -0 $PATHS_TO_SYNC"
   log_debug "$fswatch_cmd"
 
   eval "$fswatch_cmd" | while read -d "" file
@@ -296,7 +298,7 @@ function watch {
 # that will keep those paths in sync.
 #
 function watch_and_sync {
-  initial_sync "${PATHS_TO_SYNC[@]}"
+  initial_sync "$PATHS_TO_SYNC"
   watch
 }
 
@@ -393,6 +395,7 @@ function load_ignore_paths {
 # Usage: configure_log_level LEVEL
 #
 # Set the logging level to LEVEL. LEVEL must be one of the values in LOG_LEVELS.
+# If successful, returns LEVEL. Otherwise, exits with an error message.
 #
 function configure_log_level {
   local readonly level="${1:-$DEFAULT_LOG_LEVEL}"
@@ -400,6 +403,7 @@ function configure_log_level {
   
   if [[ "$index" -ge 0 ]]; then
     CURRENT_LOG_LEVEL="$level"
+    echo "Log level: $CURRENT_LOG_LEVEL"
   else
     log_error "Invalid log level specified: $level"
     instructions
@@ -410,11 +414,10 @@ function configure_log_level {
 #
 # Usage: configure_paths_to_sync COMPOSE_FILE [PATHS_FROM_CMD_LINE ...]
 #
-# Set the paths that should be synced to the Boot2Docker VM. PATHS_FROM_CMD_LINE 
-# are paths specified as command line arguments and will take precedence. If 
-# none are specified, this function will try to read the docker-compose file at
-# COMPOSE_FILE and load volumes from it. If that fails, this function will fall
-# back to the DEFAULT_PATHS_TO_SYNC.
+# Set \the paths that should be synced to the Boot2Docker VM. These 
+# paths will be read from the Docker Compose file COMPOSE_FILE as well as paths 
+# specified via the command line as PATHS_FROM_CMD_LINE. If no paths are found 
+# in either place, this function will fall back to DEFAULT_PATHS_TO_SYNC. 
 #
 function configure_paths_to_sync {
   local readonly compose_file="${1:-$DEFAULT_COMPOSE_FILE}"
@@ -424,20 +427,28 @@ function configure_paths_to_sync {
 
   local paths_to_sync=()
   if [[ "${#paths_to_sync_from_cmd_line[@]}" -gt 0 ]]; then    
-    paths_to_sync=("${paths_to_sync_from_cmd_line[@]}")
-    log_debug "Using sync paths from command line args: ${paths_to_sync[@]}"
-  elif [[ "${#paths_to_sync_from_compose_file}" -gt 0 ]]; then
-    paths_to_sync=("${paths_to_sync_from_compose_file[@]}")
-    log_info "Using sync paths from Docker Compose file at $compose_file: ${paths_to_sync[@]}"
-  else
-    paths_to_sync=($DEFAULT_PATHS_TO_SYNC)
-    log_debug "Using default sync paths: ${paths_to_sync[@]}"
+    log_info "Using sync paths from command line args: ${paths_to_sync_from_cmd_line[@]}"
+    paths_to_sync+=("${paths_to_sync_from_cmd_line[@]}")
   fi
 
+  if [[ "${#paths_to_sync_from_compose_file}" -gt 0 ]]; then
+    log_info "Using sync paths from Docker Compose file at $compose_file: ${paths_to_sync_from_compose_file[@]}"
+    paths_to_sync+=("${paths_to_sync_from_compose_file[@]}")
+  fi
+
+  if [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
+    log_info "Using default sync paths: ${DEFAULT_PATHS_TO_SYNC[@]}"
+    paths_to_sync=($DEFAULT_PATHS_TO_SYNC)
+  fi
+
+  local normalized_paths_to_sync=()
   for path in "${paths_to_sync[@]}"; do
     local normalized_path=$(greadlink -m "$path")
-    PATHS_TO_SYNC+=("$normalized_path")
-  done  
+    normalized_paths_to_sync+=("$normalized_path")
+  done
+
+  PATHS_TO_SYNC="${normalized_paths_to_sync[@]}"
+  log_info "Paths to sync: $PATHS_TO_SYNC"
 }
 
 #
@@ -456,16 +467,24 @@ function configure_excludes {
   local readonly excludes_from_cmd_line=("$@")
   local readonly excludes_from_ignore_file=($(load_ignore_paths "$ignore_file"))
 
+  local excludes=()
   if [[ "${#excludes_from_cmd_line}" -gt 0 ]]; then
-    EXCLUDES=("${excludes_from_cmd_line[@]}")
-    log_debug "Using exclude paths from command line args: ${EXCLUDES[@]}"
-  elif [[ "${#excludes_from_ignore_file}" -gt 0 ]]; then
-    EXCLUDES=("${excludes_from_ignore_file[@]}")
-    log_info "Using excludes from ignore file $ignore_file: ${EXCLUDES[@]}"
-  else
-    EXCLUDES=($DEFAULT_EXCLUDES)    
-    log_debug "Using default exclude paths: ${EXCLUDES[@]}"
+    log_info "Using exclude paths from command line args: ${excludes_from_cmd_line[@]}"
+    excludes+=("${excludes_from_cmd_line[@]}")
   fi
+
+  if [[ "${#excludes_from_ignore_file}" -gt 0 ]]; then
+    log_info "Using excludes from ignore file $ignore_file: ${excludes_from_ignore_file[@]}"
+    excludes+=("${excludes_from_ignore_file[@]}")
+  fi
+
+  if [[ "${#excludes[@]}" -eq 0 ]]; then
+    log_info "Using default exclude paths: ${DEFAULT_EXCLUDES[@]}"
+    excludes=($DEFAULT_EXCLUDES)    
+  fi
+
+  EXCLUDES="${excludes[@]}"
+  log_info "Paths to exclude: $EXCLUDES"
 }
 
 # 
@@ -511,7 +530,7 @@ function handle_command {
         ;;
       t)
         # Used for testing only
-        return
+        return 0
         ;;
       :)
         log_error "Option -$OPTARG requires an argument"
