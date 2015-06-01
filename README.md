@@ -187,14 +187,44 @@ enhancements, especially the ones marked with the
 [help wanted](https://github.com/brikis98/docker-osx-dev/labels/help%20wanted)
 tag. 
 
-Note: I started to setup integration tests for this project (see `test.sh` and
-`circle.yml`), but have hit a wall. This project is inherently about running
-a VM (Boot2Docker in VirtualBox), and as most CI providers (e.g. TravisCI and 
-CircleCI) run your build in their own VM, this would require running a 
-VM-in-a-VM. As described in [#7](https://github.com/brikis98/docker-osx-dev/issues/7),
+## Running the code locally
+
+To run the local version of the code, just clone the repo and run your local 
+copies of `setup.sh` and `docker-osx-dev` without any modifications:
+
+```
+> git clone https://github.com/brikis98/docker-osx-dev.git
+> cd docker-osx-dev
+> ./src/setup.sh
+> ./src/docker-osx-dev
+```
+
+## Running unit tests
+
+To run the unit tests, install [bats](https://github.com/sstephenson/bats) 
+(`brew install bats`) and run the corresponding files in the `test` folder:
+
+```
+> ./test/setup.bats 
+ ✓ index_of doesn't find match in empty array
+ ✓ index_of finds match in 1 item array
+ ✓ index_of doesn't find match in 1 item array
+ ✓ index_of finds match in 3 item array
+
+[...]
+
+26 tests, 0 failures
+```
+
+## Running integration tests
+
+I started to create integration tests for this project in 
+`test/integratino-test.sh`, but I hit a wall. The point of the integration test
+would be to run Boot2Docker in a VM, but most CI providers (e.g. TravisCI and 
+CircleCI) already run your build in their own VM, so this would require running 
+a VM-in-a-VM. As described in [#7](https://github.com/brikis98/docker-osx-dev/issues/7),
 I can't find any way to make this work. If anyone has any ideas, please take a 
-look! In the meantime, I could use help in adding unit tests that don't rely on
-a VM as described in [#27](https://github.com/brikis98/docker-osx-dev/issues/27).
+look! 
 
 # Alternatives
 
