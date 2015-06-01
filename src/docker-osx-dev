@@ -479,7 +479,7 @@ function configure_excludes {
   fi
 
   if [[ "${#excludes[@]}" -eq 0 ]]; then
-    log_info "Using default exclude paths: ${DEFAULT_EXCLUDES[@]}"
+    log_info "Using default exclude paths: $DEFAULT_EXCLUDES"
     excludes=($DEFAULT_EXCLUDES)    
   fi
 

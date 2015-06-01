@@ -108,12 +108,62 @@ load test_helper
 }
 
 @test "configure_paths_to_sync with docker-compose file with no volumes results in syncing the current directory" {
-  configure_paths_to_sync "resources/docker-compose-no-volumes.yml"
+  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml"
   assert_equal "$(pwd)" "$PATHS_TO_SYNC"
 }
 
 @test "configure_paths_to_sync reads paths to sync from docker-compose file" {
-  configure_paths_to_sync "resources/docker-compose-one-volume.yml"
+  configure_paths_to_sync "test/resources/docker-compose-one-volume.yml"
   assert_equal "/host" "$PATHS_TO_SYNC"
 }
+
+@test "configure_paths_to_sync with one path from command line" {
+  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo"
+  assert_equal "/foo" "$PATHS_TO_SYNC"
+}
+
+@test "configure_paths_to_sync with multiple paths from command line" {
+  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo" "/bar" "/baz/blah"
+  assert_equal "/foo /bar /baz/blah" "$PATHS_TO_SYNC"
+}
+
+@test "configure_paths_to_sync with multiple paths from command line and paths from docker-compose.yml" {
+  configure_paths_to_sync "test/resources/docker-compose-one-volume.yml" "/foo" "/bar" "/baz/blah"
+  assert_equal "/foo /bar /baz/blah /host" "$PATHS_TO_SYNC"
+}
+
+@test "configure_excludes with non-existent ignore file results in default excludes" {
+  configure_excludes "not-a-real-ignore-file"
+  assert_equal "$DEFAULT_EXCLUDES" "$EXCLUDES"
+}
+
+@test "configure_excludes with empty ignore file results in default excludes" {
+  configure_excludes "test/resources/ignore-file-empty.txt"
+  assert_equal "$DEFAULT_EXCLUDES" "$EXCLUDES"
+}
+
+@test "configure_excludes loads ignores from ignore file" {
+  configure_excludes "test/resources/ignore-file-with-one-entry.txt"
+  assert_equal "foo" "$EXCLUDES"
+}
+
+@test "configure_excludes uses single command line arg" {
+  configure_excludes "not-a-real-ignore-file" "foo"
+  assert_equal "foo" "$EXCLUDES"
+}
+
+@test "configure_excludes uses multiple command line args" {
+  configure_excludes "not-a-real-ignore-file" "foo" "bar" "baz"
+  assert_equal "foo bar baz" "$EXCLUDES"
+}
+
+@test "configure_excludes uses ignore file and multiple command line args" {
+  configure_excludes "test/resources/ignore-file-with-one-entry.txt" "foo" "bar" "baz"
+  assert_equal "foo bar baz foo" "$EXCLUDES"
+}
+
+
+
+
+
 
