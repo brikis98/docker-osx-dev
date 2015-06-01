@@ -28,7 +28,7 @@ readonly LOG_LEVEL_INFO="INFO"
 readonly LOG_LEVEL_WARN="WARN"
 readonly LOG_LEVEL_ERROR="ERROR"
 readonly LOG_LEVEL_INSTRUCTIONS="INSTRUCTIONS"
-readonly LOG_LEVELS=($LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS)
+readonly LOG_LEVELS="$LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS"
 readonly CURRENT_LOG_LEVEL="${DOCKER_OSX_DEV_LOG_LEVEL:-$LOG_LEVEL_INFO}"
 
 # Script constants
@@ -138,8 +138,8 @@ function do_log {
   shift
   local readonly message="$@"
 
-  local readonly log_level_index=$(index_of "$log_level" "${LOG_LEVELS[@]}")
-  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" "${LOG_LEVELS[@]}")
+  local readonly log_level_index=$(index_of "$log_level" $LOG_LEVELS)
+  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)
 
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
     echo -e "${color}[${log_level}] ${message}${COLOR_END}"
