@@ -34,7 +34,7 @@ readonly CURRENT_LOG_LEVEL="${DOCKER_OSX_DEV_LOG_LEVEL:-$LOG_LEVEL_INFO}"
 # Script constants
 readonly BIN_DIR="/usr/local/bin"
 readonly DOCKER_OSX_DEV_SCRIPT_NAME="docker-osx-dev"
-readonly DOCKER_OSX_DEV_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/$DOCKER_OSX_DEV_SCRIPT_NAME"
+readonly DOCKER_OSX_DEV_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/$DOCKER_OSX_DEV_SCRIPT_NAME"
 
 
 # Helper function to log an INFO message. See the log function for details.

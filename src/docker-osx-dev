@@ -19,13 +19,11 @@ readonly LOG_LEVEL_INFO="INFO"
 readonly LOG_LEVEL_WARN="WARN"
 readonly LOG_LEVEL_ERROR="ERROR"
 readonly LOG_LEVEL_INSTRUCTIONS="INSTRUCTIONS"
-readonly LOG_LEVELS=($LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS)
+readonly LOG_LEVELS="$LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS"
 readonly DEFAULT_LOG_LEVEL="$LOG_LEVEL_INFO"
 
 # Boot2Docker constants
 readonly DOCKER_HOST_NAME="dockerhost"
-readonly BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
-readonly BOOT2DOCKER_REMOTE_SHELL_CMD="ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no"
 readonly BOOT2DOCKER_USER="docker"
 readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 
@@ -33,40 +31,42 @@ readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
 
 # Sync and watch constants
-readonly DEFAULT_PATHS_TO_SYNC=(".")
-readonly DEFAULT_EXCLUDES=(".git")
+readonly DEFAULT_PATHS_TO_SYNC="."
+readonly DEFAULT_EXCLUDES=".git"
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
-readonly RSYNC_FLAGS=("archive" "verbose" "delete" "omit-dir-times" "inplace" "whole-file")
+readonly RSYNC_FLAGS="--archive --verbose --delete --omit-dir-times --inplace --whole-file"
 
 # Global variables. The should only ever be set by the corresponding 
 # configure_XXX functions.
 PATHS_TO_SYNC=()
 EXCLUDES=()
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
+BOOT2DOCKER_SSH_KEY=""
+
 
 # Helper function to log an INFO message. See the log function for details.
 function log_info {
-  log $COLOR_INFO $LOG_LEVEL_INFO "$@"
+  log $COLOR_INFO $COLOR_END $LOG_LEVEL_INFO "$@"
 }
 
 # Helper function to log a WARN message. See the log function for details.
 function log_warn {
-  log $COLOR_WARN $LOG_LEVEL_WARN "$@"
+  log $COLOR_WARN $COLOR_END $LOG_LEVEL_WARN "$@"
 }
 
 # Helper function to log a DEBUG message. See the log function for details.
 function log_debug {
-  log $COLOR_DEBUG $LOG_LEVEL_DEBUG "$@"
+  log $COLOR_DEBUG $COLOR_END $LOG_LEVEL_DEBUG "$@"
 }
 
 # Helper function to log an ERROR message. See the log function for details.
 function log_error {
-  log $COLOR_ERROR $LOG_LEVEL_ERROR "$@"
+  log $COLOR_ERROR $COLOR_END $LOG_LEVEL_ERROR "$@"
 }
 
 # Helper function to log an INSTRUCTIONS message. See the log function for details.
 function log_instructions {
-  log $COLOR_INSTRUCTIONS $LOG_LEVEL_INSTRUCTIONS "$@"
+  log $COLOR_INSTRUCTIONS $COLOR_END $LOG_LEVEL_INSTRUCTIONS "$@"
 }
 
 #
@@ -77,11 +77,16 @@ function log_instructions {
 #
 # Examples:
 #
-# index_of foo ("abc" "foo" "def")
+# arr=("abc" "foo" "def")
+# index_of foo "${arr[@]}"
 #   Returns: 1
 #
-# index_of foo ("abc" "def")
+# arr=("abc" "def")
+# index_of foo "${arr[@]}" 
 #   Returns -1
+#
+# index_of foo "abc" "def" "foo"
+#   Returns 2
 #
 function index_of {
   local readonly value="$1"
@@ -99,26 +104,26 @@ function index_of {
 }
 
 #
-# Usage: log COLOR LEVEL [MESSAGE ...]
+# Usage: log COLOR COLOR_END LEVEL [MESSAGE ...]
 #
-# Logs MESSAGE to stdout with color COLOR if the log level is at least LEVEL.
-# If no MESSAGE is specified, reads from stdin. The log level is determined by 
-# the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
+# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
+# at least LEVEL. If no MESSAGE is specified, reads from stdin. The log level is 
+# determined by the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
 #
 # Examples:
 #
-# log $COLOR_INFO $LOG_LEVEL_INFO "Hello, World"
-#   Prints: "[INFO] Hello, World" to stdout in green.
+# log "\033[0;32m" "\033[0m" "INFO" "Hello, World"
+#   Prints: "\033[0;32m[INFO] Hello, World\033[0m" to stdout.
 #
-# echo "Hello, World" | log $COLOR_RED $LOG_LEVEL_ERROR 
-#   Prints: "[ERROR] Hello, World" to stdout in red.
+# echo "Hello, World" | log "\033[0;32m" "\033[0m" "ERROR"
+#   Prints: "\033[0;32m[ERROR] Hello, World\033[0m" to stdout.
 #
 function log {
-  if [[ "$#" -gt 2 ]]; then
+  if [[ "$#" -gt 3 ]]; then
     do_log "$@"
-  elif [[ "$#" -eq 2 ]]; then
+  elif [[ "$#" -eq 3 ]]; then
     while read message; do 
-      do_log "$1" "$2" "$message"
+      do_log "$1" "$2" "$3" "$message"
     done
   else
     echo "Internal error: invalid number of arguments passed to log function: $@"
@@ -127,29 +132,31 @@ function log {
 }
 
 #
-# Usage: do_log COLOR LEVEL MESSAGE ...
+# Usage: do_log COLOR COLOR_END LEVEL MESSAGE ...
 #
-# Logs MESSAGE to stdout with color COLOR if the log level is at least LEVEL.
-# The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL environment 
-# variable.
+# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
+# at least LEVEL. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL 
+# environment variable.
 #
 # Examples:
 #
-# do_log $COLOR_INFO $LOG_LEVEL_INFO "Hello, World"
-#   Prints: "[INFO] Hello, World" to stdout in green.
+# do_log "\033[0;32m" "\033[0m" "INFO" "Hello, World"
+#   Prints: "\033[0;32m[INFO] Hello, World\033[0m" to stdout.
 #
 function do_log {
   local readonly color="$1"
+  shift
+  local readonly color_end="$1"
   shift
   local readonly log_level="$1"
   shift
   local readonly message="$@"
 
-  local readonly log_level_index=$(index_of "$log_level" "${LOG_LEVELS[@]}")
-  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" "${LOG_LEVELS[@]}")
+  local readonly log_level_index=$(index_of "$log_level" $LOG_LEVELS)
+  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)
 
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
-    echo -e "${color}[${log_level}] ${message}${COLOR_END}"
+    echo -e "${color}[${log_level}] ${message}${color_end}"
   fi   
 }
 
@@ -190,11 +197,10 @@ function do_rsync {
   local readonly path_to_sync=$(find_path_to_sync_parent "$path")
   local readonly parent_folder=$(dirname "$path_to_sync")
 
-  local readonly flags="${RSYNC_FLAGS[@]/#/--}"
   local readonly excludes="${EXCLUDES[@]/#/--exclude }"
-  local readonly rsh_flag="--rsh=\"$BOOT2DOCKER_REMOTE_SHELL_CMD\""
+  local readonly rsh_flag="--rsh=\"ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no\""
 
-  local readonly rsync_cmd="rsync $flags $excludes $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
+  local readonly rsync_cmd="rsync $RSYNC_FLAGS $excludes $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
   log_debug "$rsync_cmd"
 
   eval "$rsync_cmd" 2>&1 | log_info
@@ -230,9 +236,11 @@ function sync {
 #   Returns: "A, B, C"
 #
 function join {
-  local readonly IFS="$1"
+  local readonly separator="$1"
   shift
-  echo "$*"
+  local readonly values=("$@")  
+  
+  printf "%s$separator" "${values[@]}" | sed "s/$separator$//"
 }
 
 #
@@ -272,13 +280,11 @@ function initial_sync {
 function watch {
   log_info "Watching: ${PATHS_TO_SYNC[@]}"
 
-  local readonly excludes="${EXCLUDES[@]/#/--exclude }"
-  local readonly fswatch_cmd="fswatch -0 $excludes ${PATHS_TO_SYNC[@]}"
+  local readonly fswatch_cmd="fswatch -0 ${PATHS_TO_SYNC[@]}"
   log_debug "$fswatch_cmd"
 
   eval "$fswatch_cmd" | while read -d "" file
   do
-    log_info "Detected change in $file"
     sync "$file"
   done  
 }
@@ -304,11 +310,11 @@ function instructions {
   echo -e 
   echo -e "Options, if supplied, have the following meanings:" 
   echo -e 
-  echo -e "-s PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: ${DEFAULT_PATHS_TO_SYNC[@]}"
-  echo -e "-e PATH\t\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: ${DEFAULT_EXCLUDES[@]}"
+  echo -e "-s PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
+  echo -e "-e PATH\t\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
   echo -e "-c COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DEFAULT_COMPOSE_FILE"
   echo -e "-i IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing. Default: $DEFAULT_IGNORE_FILE"
-  echo -e "-l LOG_LEVEL\t\tSpecify the logging level. One of: ${LOG_LEVELS[@]}. Default: ${DEFAULT_LOG_LEVEL}"
+  echo -e "-l LOG_LEVEL\t\tSpecify the logging level. One of: $LOG_LEVELS. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "-h\t\t\tPrint this help text."
   echo -e 
   echo -e "Overview:"
@@ -390,7 +396,7 @@ function load_ignore_paths {
 #
 function configure_log_level {
   local readonly level="${1:-$DEFAULT_LOG_LEVEL}"
-  local readonly index=$(index_of "$level" "${LOG_LEVELS[@]}")
+  local readonly index=$(index_of "$level" $LOG_LEVELS)
   
   if [[ "$index" -ge 0 ]]; then
     CURRENT_LOG_LEVEL="$level"
@@ -424,7 +430,7 @@ function configure_paths_to_sync {
     paths_to_sync=("${paths_to_sync_from_compose_file[@]}")
     log_info "Using sync paths from Docker Compose file at $compose_file: ${paths_to_sync[@]}"
   else
-    paths_to_sync=("${DEFAULT_PATHS_TO_SYNC[@]}")
+    paths_to_sync=($DEFAULT_PATHS_TO_SYNC)
     log_debug "Using default sync paths: ${paths_to_sync[@]}"
   fi
 
@@ -457,9 +463,16 @@ function configure_excludes {
     EXCLUDES=("${excludes_from_ignore_file[@]}")
     log_info "Using excludes from ignore file $ignore_file: ${EXCLUDES[@]}"
   else
-    EXCLUDES=("${DEFAULT_EXCLUDES[@]}")    
+    EXCLUDES=($DEFAULT_EXCLUDES)    
     log_debug "Using default exclude paths: ${EXCLUDES[@]}"
   fi
+}
+
+# 
+# Configures the Boot2Docker SSH key by looking into the Boot2Docker config
+#
+function configure_boot2docker_ssh_key {
+  BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
 }
 
 #
@@ -475,7 +488,7 @@ function handle_command {
   local ignore_file=""
   local log_level=""
 
-  while getopts ":s::e::c::l::i::h" opt; do
+  while getopts ":s::e::c::l::i::h:t" opt; do
     case "$opt" in
       s)
         paths_to_sync+=("$OPTARG")
@@ -496,6 +509,10 @@ function handle_command {
         instructions
         exit 0
         ;;
+      t)
+        # Used for testing only
+        return
+        ;;
       :)
         log_error "Option -$OPTARG requires an argument"
         instructions
@@ -512,6 +529,7 @@ function handle_command {
   configure_log_level "$log_level"
   configure_paths_to_sync "$docker_compose_file" "${paths_to_sync[@]}"
   configure_excludes "$ignore_file" "${excludes[@]}"
+  configure_boot2docker_ssh_key
 
   watch_and_sync
 }

@@ -2,6 +2,11 @@ machine:
   environment:
     XCODE_WORKSPACE: "$HOME/docker-osx-dev" # Dummy value since this project doesn't use XCode or iOS
     XCODE_SCHEME: "$HOME/docker-osx-dev"    # Dummy value since this project doesn't use XCode or iOS
+dependencies:
+  post: 
+    - brew install bats
 test:
   override:
-    - ./test.sh
+    - ./test/docker-osx-dev.bats
+    # Disabled until we can solve https://github.com/brikis98/docker-osx-dev/issues/7
+    # - ./test/integration-test.sh

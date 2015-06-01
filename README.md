@@ -40,7 +40,7 @@ The `setup.sh` script can setup your entire Docker development environment
 on OS X, including install Docker, Boot2Docker, and docker-osx-dev:
 
 ```sh
-bash <(curl -s https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/setup.sh)
+bash <(curl -s https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/setup.sh)
 ```
 
 Three notes about the `setup.sh` script:
