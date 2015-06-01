@@ -35,6 +35,7 @@ readonly CURRENT_LOG_LEVEL="${DOCKER_OSX_DEV_LOG_LEVEL:-$LOG_LEVEL_INFO}"
 readonly BIN_DIR="/usr/local/bin"
 readonly DOCKER_OSX_DEV_SCRIPT_NAME="docker-osx-dev"
 readonly DOCKER_OSX_DEV_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/$DOCKER_OSX_DEV_SCRIPT_NAME"
+readonly ENV_FILE_COMMENT="\n# docker-osx-dev\n"
 
 
 # Helper function to log an INFO message. See the log function for details.
@@ -151,6 +152,24 @@ function do_log {
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
     echo -e "${color}[${log_level}] ${message}${color_end}"
   fi   
+}
+
+#
+# Usage: join SEPARATOR ARRAY
+#
+# Joins the elements of ARRAY with the SEPARATOR character between them.
+# 
+# Examples:
+#
+# join ", " ("A" "B" "C")
+#   Returns: "A, B, C"
+#
+function join {
+  local readonly separator="$1"
+  shift
+  local readonly values=("$@")  
+  
+  printf "%s$separator" "${values[@]}" | sed "s/$separator$//"
 }
 
 #
@@ -372,14 +391,14 @@ function is_boot2docker_running {
 # Initializes and starts up the Boot2Docker VM.
 #
 function init_boot2docker {
-  if ! is_boot2docker_initialized ; then
+  if ! is_boot2docker_initialized; then
     log_info "Initializing Boot2Docker VM"
     boot2docker init
   fi
 
   check_for_shared_folders
 
-  if ! is_boot2docker_running ; then
+  if ! is_boot2docker_running; then
     log_info "Starting Boot2Docker VM"
     boot2docker start --vbox-share=disable
   fi
@@ -399,28 +418,47 @@ function install_rsync_on_boot2docker {
 function add_environment_variables {
   local readonly env_file=$(get_env_file)
   local readonly boot2docker_exports=$(boot2docker shellinit 2>/dev/null)
-  local env_changed=false
+  local readonly exports_to_add_to_env_file=$(determine_boot2docker_exports_for_env_file "$boot2docker_exports")
 
+  if [[ ! -z "$exports_to_add_to_env_file" ]]; then
+    log_info "Adding new environment variables to $env_file: $exports_to_add_to_env_file"
+    echo -e "$exports_to_add_to_env_file" >> "$env_file"
+    log_instructions "To pick up important new environment variables in the current shell, run:\n\tsource $env_file"
+  else
+    log_warn "All Boot2Docker environment variables already defined, will not overwrite"
+  fi
+}
+
+#
+# Usage: determine_boot2docker_exports_for_env_file BOOT2DOCKER_SHELLINIT_EXPORTS
+#
+# Parses BOOT2DOCKER_SHELLINIT_EXPORTS, which should be the output of the 
+# boot2docker shelinit command, and returns a string of the exports that are 
+# not already in the current environment.
+#
+function determine_boot2docker_exports_for_env_file {
+  local readonly boot2docker_exports="$1"
+
+  local exports_to_add_to_env_file=()
   while read -r export_line; do
-    local readonly var_name=$(echo "$export_line" | sed -e 's/export \(.*\)=.*/\1/')
+    if [[ ! -z "$export_line" ]]; then
+      local readonly var_name=$(echo "$export_line" | sed -ne 's/export \(.*\)=.*/\1/p')
 
-    if env_is_defined "$var_name" ; then
-      log_warn "Your shell (${SHELL}) already defines $var_name (e.g. perhaps in ${env_file}), will not overwrite"
-    else
-      log_info "Adding $var_name to $env_file"
-      
-      if ! $env_changed ; then
-        echo -e "\n# docker-osx-dev" >> "$env_file"
-        env_changed=true
+      if [[ -z "$var_name" ]]; then
+        log_error "Unexpected entry from boot2docker shellinit: $export_line"
+        exit 1      
+      elif ! env_is_defined "$var_name"; then
+        exports_to_add_to_env_file+=("$export_line")
       fi
-
-      echo "$export_line" >> "${env_file}"
     fi
   done <<< "$boot2docker_exports"
 
-  if $env_changed ; then
-    log_instructions "New environment variables defined. To pick them up in the current shell, run:\n\tsource $env_file"
-  fi    
+  if [[ "${#exports_to_add_to_env_file[@]}" -gt 0 ]]; then
+    local exports_as_string=$(join "\n" "${exports_to_add_to_env_file[@]}")
+    echo -e "$ENV_FILE_COMMENT$exports_as_string"
+  else
+    echo ""
+  fi
 }
 
 #

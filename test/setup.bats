@@ -66,6 +66,32 @@ load test_helper
   assert_output ""
 }
 
+@test "join empty arrays" {
+  run join ","
+  assert_output ""
+}
+
+@test "join arrays of length 1" {
+  run join "," "foo"
+  assert_output "foo"
+}
+
+@test "join arrays of length 3" {
+  run join ", " "foo" "bar" "baz"
+  assert_output "foo, bar, baz"
+}
+
+@test "join arrays with empty separator" {
+  run join "" "foo" "bar" "baz"
+  assert_output "foobarbaz"
+}
+
+@test "join arrays passed in as arguments" {
+  arr=(foo bar baz)
+  run join ", " "${arr[@]}"
+  assert_output "foo, bar, baz"
+}
+
 @test "assert_non_empty exits on empty value" {
   run assert_non_empty ""
   assert_failure
@@ -86,5 +112,46 @@ load test_helper
   assert_failure
 }
 
+@test "determine_boot2docker_exports_for_env_file handles empty string" {
+  run determine_boot2docker_exports_for_env_file
+  assert_output ""
+}
+
+@test "determine_boot2docker_exports_for_env_file shows an error for an unexpected boot2docker shellinit output" {
+  run determine_boot2docker_exports_for_env_file "not-a-valid-shellinit-format"
+  assert_failure
+}
+
+@test "determine_boot2docker_exports_for_env_file parses a single new export" {
+  shellinit="export NEW_ENV_VARIABLE=VALUE"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output "$(echo -e "$ENV_FILE_COMMENT$shellinit")"
+}
+
+@test "determine_boot2docker_exports_for_env_file parses multiple new exports" {
+  shellinit="export NEW_ENV_VARIABLE_1=VALUE1
+export NEW_ENV_VARIABLE_2=VALUE2
+export NEW_ENV_VARIABLE_3=VALUE3"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output "$(echo -e "$ENV_FILE_COMMENT$shellinit")"
+}
+
+@test "determine_boot2docker_exports_for_env_file skips environment variables already defined" {
+  shellinit="
+export USER=$USER
+export HOME=$HOME"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output ""
+}
+
+@test "determine_boot2docker_exports_for_env_file parses multiple new exports and skips environment variables already defined" {
+  shellinit="
+export NEW_ENV_VARIABLE_1=VALUE1
+export USER=$USER
+export HOME=$HOME 
+export NEW_ENV_VARIABLE_2=VALUE2"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output "$(echo -e "${ENV_FILE_COMMENT}export NEW_ENV_VARIABLE_1=VALUE1\nexport NEW_ENV_VARIABLE_2=VALUE2")"
+}
 
 
