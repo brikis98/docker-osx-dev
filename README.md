@@ -219,7 +219,7 @@ To run the unit tests, install [bats](https://github.com/sstephenson/bats)
 ## Running integration tests
 
 I started to create integration tests for this project in 
-`test/integratino-test.sh`, but I hit a wall. The point of the integration test
+`test/integration-test.sh`, but I hit a wall. The point of the integration test
 would be to run Boot2Docker in a VM, but most CI providers (e.g. TravisCI and 
 CircleCI) already run your build in their own VM, so this would require running 
 a VM-in-a-VM. As described in [#7](https://github.com/brikis98/docker-osx-dev/issues/7),
