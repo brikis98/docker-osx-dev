@@ -162,8 +162,60 @@ load test_helper
   assert_equal "foo bar baz foo" "$EXCLUDES"
 }
 
+@test "load_ignore_paths skips non-existent files" {
+  run load_ignore_paths "not-a-real-file"
+  assert_output ""
+}
 
+@test "load_ignore_paths handles empty ignore files" {
+  run load_ignore_paths "test/resources/ignore-file-empty.txt"
+  assert_output ""
+}
 
+@test "load_ignore_paths handles ignore file with one entry" {
+  run load_ignore_paths "test/resources/ignore-file-with-one-entry.txt"
+  assert_output "foo"
+}
+
+@test "load_ignore_paths handles ignore file with multiple entries" {
+  run load_ignore_paths "test/resources/ignore-file-with-multiple-entries.txt"
+  assert_output "foo bar baz"
+}
+
+@test "load_ignore_paths handles ignore file with comments" {
+  run load_ignore_paths "test/resources/ignore-file-with-comments.txt"
+  assert_output "foo bar baz"
+}
+
+@test "load_paths_from_docker_compose skips non-existent files" {
+  run load_paths_from_docker_compose "not-a-real-file"
+  assert_output ""
+}
+
+@test "load_paths_from_docker_compose handles docker compose files with no volumes" {
+  run load_paths_from_docker_compose "test/resources/docker-compose-no-volumes.yml"
+  assert_output ""
+}
+
+@test "load_paths_from_docker_compose handles docker compose files with one volume" {
+  run load_paths_from_docker_compose "test/resources/docker-compose-one-volume.yml"
+  assert_output "/host"
+}
+
+@test "load_paths_from_docker_compose handles docker compose files with multiple volumes" {
+  run load_paths_from_docker_compose "test/resources/docker-compose-multiple-volumes.yml"
+  assert_output "/host1 /foo/bar/baz /source/path"
+}
+
+@test "load_paths_from_docker_compose handles docker compose files with multiple containers and multiple volumes" {
+  run load_paths_from_docker_compose "test/resources/docker-compose-multiple-containers-with-volumes.yml"
+  assert_output "/host1 /host2 /foo/bar /"
+}
+
+@test "load_paths_from_docker_compose handles docker compose files with non-mounted volumes" {
+  run load_paths_from_docker_compose "test/resources/docker-compose-non-mounted-volumes.yml"
+  assert_output "/host /a"
+}
 
 
 
