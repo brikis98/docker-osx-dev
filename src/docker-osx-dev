@@ -282,11 +282,14 @@ function initial_sync {
 function watch {
   log_info "Watching: $PATHS_TO_SYNC"
 
-  local readonly fswatch_cmd="fswatch -0 $PATHS_TO_SYNC"
+  local readonly excludes=($EXCLUDES)
+  local readonly excludes="${excludes[@]/#/--exclude }"
+  local readonly fswatch_cmd="fswatch -0 $excludes $PATHS_TO_SYNC"
   log_debug "$fswatch_cmd"
 
   eval "$fswatch_cmd" | while read -d "" file
   do
+    log_info "Detected change in $file"
     sync "$file"
   done  
 }
