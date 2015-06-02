@@ -487,15 +487,15 @@ function install_local_scripts {
 # Adds Docker entries to /etc/hosts 
 #
 function add_docker_host {
-  local readonly boot2docker_ip=$(boot2docker ip)
-  local readonly host_entry="$boot2docker_ip $DOCKER_HOST_NAME"
-
   if grep -q "^[^#]*$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
     log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not overwrite"
   else
+    local readonly boot2docker_ip=$(boot2docker ip)
+    local readonly host_entry="\n$boot2docker_ip $DOCKER_HOST_NAME"
+
     log_info "Adding $DOCKER_HOST_NAME entry to $HOSTS_FILE so you can use http://$DOCKER_HOST_NAME URLs for testing"
     log_instructions "Modifying $HOSTS_FILE requires sudo privileges, please enter your password."
-    sudo -k sh -c "echo $host_entry >> $HOSTS_FILE"
+    sudo -k sh -c "echo \"$host_entry\" >> $HOSTS_FILE"
   fi
 }
 
