@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# A script for setting up a productive development environment with Docker 
+# A script for setting up a productive development environment with Docker
 # on OS X. See https://github.com/brikis98/docker-osx-dev for more info.
 
 set -e
@@ -22,7 +22,7 @@ readonly COLOR_ERROR='\033[0;31m'
 readonly COLOR_INSTRUCTIONS='\033[0;37m'
 readonly COLOR_END='\033[0m'
 
-# Log levels 
+# Log levels
 readonly LOG_LEVEL_DEBUG="DEBUG"
 readonly LOG_LEVEL_INFO="INFO"
 readonly LOG_LEVEL_WARN="WARN"
@@ -76,7 +76,7 @@ function log_instructions {
 #   Returns: 1
 #
 # arr=("abc" "def")
-# index_of foo "${arr[@]}" 
+# index_of foo "${arr[@]}"
 #   Returns -1
 #
 # index_of foo "abc" "def" "foo"
@@ -92,7 +92,7 @@ function index_of {
       echo $i
       return
     fi
-  done 
+  done
 
   echo -1
 }
@@ -100,8 +100,8 @@ function index_of {
 #
 # Usage: log COLOR COLOR_END LEVEL [MESSAGE ...]
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. If no MESSAGE is specified, reads from stdin. The log level is 
+# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is
+# at least LEVEL. If no MESSAGE is specified, reads from stdin. The log level is
 # determined by the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
 #
 # Examples:
@@ -116,7 +116,7 @@ function log {
   if [[ "$#" -gt 3 ]]; then
     do_log "$@"
   elif [[ "$#" -eq 3 ]]; then
-    while read message; do 
+    while read message; do
       do_log "$1" "$2" "$3" "$message"
     done
   else
@@ -128,8 +128,8 @@ function log {
 #
 # Usage: do_log COLOR COLOR_END LEVEL MESSAGE ...
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL 
+# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is
+# at least LEVEL. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL
 # environment variable.
 #
 # Examples:
@@ -151,14 +151,14 @@ function do_log {
 
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
     echo -e "${color}[${log_level}] ${message}${color_end}"
-  fi   
+  fi
 }
 
 #
 # Usage: join SEPARATOR ARRAY
 #
 # Joins the elements of ARRAY with the SEPARATOR character between them.
-# 
+#
 # Examples:
 #
 # join ", " ("A" "B" "C")
@@ -167,8 +167,8 @@ function do_log {
 function join {
   local readonly separator="$1"
   shift
-  local readonly values=("$@")  
-  
+  local readonly values=("$@")
+
   printf "%s$separator" "${values[@]}" | sed "s/$separator$//"
 }
 
@@ -217,18 +217,18 @@ function env_is_defined {
   test -n "$setting"
 }
 
-# 
+#
 # Usage: brew_install PACKAGE_NAME READABLE_NAME COMMAND_NAME USE_CASK
 #
-# Checks if PACKAGE_NAME is already installed by using brew as well as by 
+# Checks if PACKAGE_NAME is already installed by using brew as well as by
 # searching for COMMAND_NAME on the PATH and if it can't find it, uses brew to
 # install PACKAGE_NAME. If USE_CASK is set to true, uses brew cask
-# instead. 
+# instead.
 #
 # Examples:
 #
 # brew_install virtualbox VirtualBox vboxwebsrv true
-#   Result: checks if brew cask already has virtualbox installed or vboxwebsrv 
+#   Result: checks if brew cask already has virtualbox installed or vboxwebsrv
 #   is on the PATH, and if not, uses brew cask to install it.
 #
 function brew_install {
@@ -236,7 +236,7 @@ function brew_install {
   local readonly readable_name="$2"
   local readonly command_name="$3"
   local readonly use_cask="$4"
-  
+
   local brew_command="brew"
   if [[ "$use_cask" = true ]]; then
     brew_command="brew cask"
@@ -249,7 +249,22 @@ function brew_install {
   else
     log_info "Installing $readable_name"
     eval "$brew_command install $package_name"
-  fi  
+  fi
+}
+
+function port_install {
+  local readonly package_name="$1"
+  local readonly readable_name="$2"
+  local readonly command_name="$3"
+
+  if [[ `port list $package_name` != "" ]] ; then
+    log_warn "$readable_name is already installed by MacPorts, skipping"
+  elif type "$command_name" > /dev/null 2>&1 ; then
+    log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
+  else
+    log_info "Installing $readable_name"
+    eval "sudo port install $package_name"
+  fi
 }
 
 #
@@ -263,7 +278,7 @@ function brew_install {
 #   Returns: ~/.bash_profile
 #
 function get_env_file {
-  if [[ -f "$BASH_RC" ]]; then 
+  if [[ -f "$BASH_RC" ]]; then
     echo "$BASH_RC"
   elif [[ -f "$ZSH_RC" ]]; then
     echo "$ZSH_RC"
@@ -273,7 +288,34 @@ function get_env_file {
 }
 
 #
-# Checks that this script can be run on the current machine and exits with an 
+# Checks if HomeBrew is installed.
+#
+function is_brew_installed {
+  type brew > /dev/null 2>&1
+}
+
+#
+# Checks if MacPorts is installed.
+#
+function is_port_installed {
+  type port > /dev/null 2>&1
+}
+
+#
+# Checks if all MacPorts requirements are met.
+#
+function check_port_prerequisites {
+  if ! type boot2docker > /dev/null 2>&1 ; then
+    log_error "MacPorts-based setup expects Docker Compose to be preinstalled."
+    exit 1
+  elif ! type docker-compose > /dev/null 2>&1 ; then
+    log_error "MacPorts-based setup expects Boot2Docker to be preinstalled."
+    exit 1
+  fi
+}
+
+#
+# Checks that this script can be run on the current machine and exits with an
 # error code if any of the requirements are missing.
 #
 function check_prerequisites {
@@ -284,8 +326,8 @@ function check_prerequisites {
     exit 1
   fi
 
-  if ! type brew > /dev/null 2>&1 ; then 
-    log_error "This script requires HomeBrew, but it's not installed. Aborting."
+  if [[ ! is_brew_installed || ! is_port_installed ]] ; then
+    log_error "This script requires HomeBrew or MacPorts, but neither is installed. Aborting."
     exit 1
   fi
 }
@@ -294,19 +336,32 @@ function check_prerequisites {
 # Installs all the dependencies for docker-osx-dev.
 #
 function install_dependencies {
-  log_info "Updating HomeBrew"
-  brew update
+  if is_brew_installed ; then
 
-  brew_install "caskroom/cask/brew-cask" "Cask" "" false
-  brew_install "virtualbox" "VirtualBox" "VBoxManage" true
-  brew_install "boot2docker" "Boot2Docker" "boot2docker" false
-  brew_install "docker-compose" "Docker Compose" "docker-compose" false
-  brew_install "fswatch" "fswatch" "fswatch" false
-  brew_install "coreutils" "GNU core utilities" "greadlink" false
+    log_info "Updating HomeBrew"
+    brew update
+
+    brew_install "caskroom/cask/brew-cask" "Cask" "" false
+    brew_install "virtualbox" "VirtualBox" "VBoxManage" true
+    brew_install "boot2docker" "Boot2Docker" "boot2docker" false
+    brew_install "docker-compose" "Docker Compose" "docker-compose" false
+    brew_install "fswatch" "fswatch" "fswatch" false
+    brew_install "coreutils" "GNU core utilities" "greadlink" false
+
+  elif is_port_installed ; then
+
+    log_info "Updating MacPorts"
+    sudo port selfupdate
+
+    port_install "virtualbox" "VirtualBox" "VBoxManage"
+    port_install "boot2docker" "Boot2Docker" "boot2docker"
+    port_install "fswatch" "fswatch" "fswatch"
+    port_install "coreutils" "GNU core utilities" "greadlink"
+  fi
 }
 
 #
-# Returns the name of the Boot2Docker VM. This is the official identifier used 
+# Returns the name of the Boot2Docker VM. This is the official identifier used
 # by VirtualBox.
 #
 function find_boot2docker_vm_name {
@@ -326,7 +381,7 @@ function find_vbox_shared_folders {
 # Usage: remove_shared_folders VM_NAME SHARED_FOLDERS
 #
 # Remove the VirtualBox shared folders in SHARED_FOLDERS from the VirtualBox VM
-# named VM_NAME. SHARED_FOLDERS should be the output of the 
+# named VM_NAME. SHARED_FOLDERS should be the output of the
 # find_vbox_shared_folders function.
 #
 function remove_shared_folders {
@@ -359,12 +414,12 @@ function check_for_shared_folders {
     log_instructions "Would you like this script to remove them?"
     select choice in "yes" "no"; do
       case $REPLY in
-        y|Y|yes|Yes ) 
-          remove_shared_folders "$vm_name" "$vbox_shared_folders" 
+        y|Y|yes|Yes )
+          remove_shared_folders "$vm_name" "$vbox_shared_folders"
           break
           ;;
-        n|N|no|No ) 
-          log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting." 
+        n|N|no|No )
+          log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting."
           exit 1
           ;;
       esac
@@ -404,7 +459,7 @@ function init_boot2docker {
   fi
 }
 
-# 
+#
 # Installs rsync on the Boot2Docker VM, unless it's already installed.
 #
 function install_rsync_on_boot2docker {
@@ -432,8 +487,8 @@ function add_environment_variables {
 #
 # Usage: determine_boot2docker_exports_for_env_file BOOT2DOCKER_SHELLINIT_EXPORTS
 #
-# Parses BOOT2DOCKER_SHELLINIT_EXPORTS, which should be the output of the 
-# boot2docker shelinit command, and returns a string of the exports that are 
+# Parses BOOT2DOCKER_SHELLINIT_EXPORTS, which should be the output of the
+# boot2docker shelinit command, and returns a string of the exports that are
 # not already in the current environment.
 #
 function determine_boot2docker_exports_for_env_file {
@@ -446,7 +501,7 @@ function determine_boot2docker_exports_for_env_file {
 
       if [[ -z "$var_name" ]]; then
         log_error "Unexpected entry from boot2docker shellinit: $export_line"
-        exit 1      
+        exit 1
       elif ! env_is_defined "$var_name"; then
         exports_to_add_to_env_file+=("$export_line")
       fi
@@ -464,8 +519,8 @@ function determine_boot2docker_exports_for_env_file {
 #
 # Usage: install_local-scripts [LOCAL_SCRIPT_PATH]
 #
-# Installs the local docker-osx-dev script. If the LOCAL_SCRIPT_PATH is 
-# specified, copies the script from LOCAL_SCRIPT_PATH (this is mostly useful for 
+# Installs the local docker-osx-dev script. If the LOCAL_SCRIPT_PATH is
+# specified, copies the script from LOCAL_SCRIPT_PATH (this is mostly useful for
 # testing). Otherwise, downloads the latest version of the script from GitHub.
 #
 function install_local_scripts {
@@ -484,7 +539,7 @@ function install_local_scripts {
 }
 
 #
-# Adds Docker entries to /etc/hosts 
+# Adds Docker entries to /etc/hosts
 #
 function add_docker_host {
   local readonly boot2docker_ip=$(boot2docker ip)
@@ -531,7 +586,7 @@ function handle_command {
         log_error "Option -$OPTARG requires an argument"
         exit 1
         ;;
-      \?) 
+      \?)
         log_error "Invalid option: -$OPTARG"
         exit 1
         ;;
