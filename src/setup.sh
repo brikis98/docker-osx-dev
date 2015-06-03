@@ -252,12 +252,22 @@ function brew_install {
   fi
 }
 
+#
+# Usage: port_install PACKAGE_NAME READABLE_NAME COMMAND_NAME
+#
+# Checks if PACKAGE_NAME is already installed by using port as well as by
+# searching for COMMAND_NAME on the PATH and if it can't find it, uses port to
+# install PACKAGE_NAME.
+#
+# `port list` is used with grep for increased reliability since list command
+# can return empty string or unrelated warning.
+#
 function port_install {
   local readonly package_name="$1"
   local readonly readable_name="$2"
   local readonly command_name="$3"
 
-  if [[ `port list $package_name` != "" ]] ; then
+  if [ `port list | grep "^$package_name\s" | wc -l` == "1" ] ; then
     log_warn "$readable_name is already installed by MacPorts, skipping"
   elif type "$command_name" > /dev/null 2>&1 ; then
     log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
