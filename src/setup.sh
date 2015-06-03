@@ -267,7 +267,7 @@ function port_install {
   local readonly readable_name="$2"
   local readonly command_name="$3"
 
-  if [ `port list | grep "^$package_name\s" | wc -l` == "1" ] ; then
+  if [ `port installed | grep "$package_name\s@.*(active)$" | wc -l` == "1" ] ; then
     log_warn "$readable_name is already installed by MacPorts, skipping"
   elif type "$command_name" > /dev/null 2>&1 ; then
     log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
