@@ -508,7 +508,6 @@ function configure_boot2docker_ssh_key {
   BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
 }
 
-
 #
 # Returns the name of the Boot2Docker VM. This is the official identifier used
 # by VirtualBox.
@@ -615,8 +614,6 @@ function install_rsync_on_boot2docker {
   log_info "Installing rsync in the Boot2Docker image"
   boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
 }
-
-
 
 #
 # Usage handle_command ARGS ...
