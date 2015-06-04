@@ -208,7 +208,7 @@ function do_rsync {
 
     local readonly rsync_cmd="rsync $RSYNC_FLAGS $exclude_flags $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
     log_debug "$rsync_cmd"
-#eval "$rsync_cmd" 2>&1 | log_info
+    eval "$rsync_cmd" 2>&1 | log_info
   fi
 }
 
@@ -610,8 +610,6 @@ function install_rsync_on_boot2docker {
   log_info "Installing rsync in the Boot2Docker image"
   boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
 }
-
-
 
 #
 # Usage handle_command ARGS ...
