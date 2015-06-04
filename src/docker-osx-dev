@@ -208,8 +208,7 @@ function do_rsync {
 
     local readonly rsync_cmd="rsync $RSYNC_FLAGS $exclude_flags $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
     log_debug "$rsync_cmd"
-
-    eval "$rsync_cmd" 2>&1 | log_info
+#eval "$rsync_cmd" 2>&1 | log_info
   fi
 }
 
@@ -226,9 +225,9 @@ function do_rsync {
 #
 function sync {
   local readonly paths_to_sync=("$@")
-
-  for path in "${paths_to_sync[@]}"; do
-    do_rsync "$path"
+  for pathRsync in ${paths_to_sync[@]}
+   do
+    do_rsync "$pathRsync"
   done
 }
 
@@ -274,7 +273,9 @@ function initial_sync {
   log_debug "Creating parent directories in Docker VM: $ssh_cmd"
   boot2docker ssh "$ssh_cmd"
 
-  sync "${paths_to_sync[@]}"
+   sync "${paths_to_sync[@]}"
+
+
   log_info "Initial sync done"
 }
 
@@ -625,7 +626,7 @@ function handle_command {
   local ignore_file=""
   local log_level=""
 
-  while getopts ":s::e::c::l::i::h:t" opt; do
+  while getopts ":s::u::e::c::l::i::h:t" opt; do
     case "$opt" in
       s)
         paths_to_sync+=("$OPTARG")
@@ -649,6 +650,11 @@ function handle_command {
       t)
         # Used for testing only
         return 0
+        ;;
+      u)
+        # docker compose too
+        $(boot2docker shellinit 2>/dev/null)
+        docker-compose up
         ;;
       :)
         log_error "Option -$OPTARG requires an argument"
