@@ -41,9 +41,9 @@ Docker development environment on OS X, including installing Docker and
 Boot2Docker:
 
 ```sh
-> curl -o /usr/local/bin/docker-osx-dev https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/docker-osx-dev
-> chmod +x /usr/local/bin/docker-osx-dev
-> docker-osx-dev install
+curl -o /usr/local/bin/docker-osx-dev https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/docker-osx-dev
+chmod +x /usr/local/bin/docker-osx-dev
+docker-osx-dev install
 ```
 
 Three notes about the `install` command:
