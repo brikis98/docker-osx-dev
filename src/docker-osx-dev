@@ -666,7 +666,7 @@ function sync {
 # all necessary parent directories and permissions.
 #
 function initial_sync {
-  local readonly paths_to_sync=("$@")
+  local readonly paths_to_sync=($PATHS_TO_SYNC)
   log_info "Performing initial sync of paths: ${paths_to_sync[@]}"
 
   local dirs_to_create=()
@@ -891,7 +891,7 @@ function watch_and_sync {
   configure_boot2docker_ssh_key
   init_boot2docker
   install_rsync_on_boot2docker
-  initial_sync "$PATHS_TO_SYNC"
+  initial_sync
   watch
 }
 
