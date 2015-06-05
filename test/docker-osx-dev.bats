@@ -3,7 +3,7 @@
 # Unit tests for docker-osx-dev. To run these tests, you must have bats 
 # installed. See https://github.com/sstephenson/bats 
 
-source src/docker-osx-dev -t
+source src/docker-osx-dev "test_mode"
 load test_helper
 
 @test "index_of doesn't find match in empty array" {
@@ -92,73 +92,73 @@ load test_helper
   assert_output "foo, bar, baz"
 }
 
-@test "configure_log_level to DEBUG" {
-  configure_log_level "$LOG_LEVEL_DEBUG"
-  assert_equal "$LOG_LEVEL_DEBUG" "$CURRENT_LOG_LEVEL"
+@test "assert_valid_log_level accepts DEBUG" {
+  run assert_valid_log_level "$LOG_LEVEL_DEBUG"
+  assert_success
 }
 
-@test "configure_log_level to invalid value" {
-  run configure_log_level "INVALID_LOG_LEVEL"
+@test "assert_valid_log_level rejects an invalid value" {
+  run assert_valid_log_level "INVALID_LOG_LEVEL"
   assert_failure
 }
 
 @test "configure_paths_to_sync with non-existent docker-compose file results in syncing the current directory" {
-  configure_paths_to_sync "not-a-real-docker-compose-file"
+  configure_paths_to_sync not-a-real-docker-compose-file > /dev/null
   assert_equal "$(pwd)" "$PATHS_TO_SYNC"
 }
 
 @test "configure_paths_to_sync with docker-compose file with no volumes results in syncing the current directory" {
-  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml"
-  assert_equal "$(pwd)" "$PATHS_TO_SYNC"
+  configure_paths_to_sync test/resources/docker-compose-no-volumes.yml > /dev/null
+  assert_equal "$(pwd)" "$PATHS_TO_SYNC" 
 }
 
 @test "configure_paths_to_sync reads paths to sync from docker-compose file" {
-  configure_paths_to_sync "test/resources/docker-compose-one-volume.yml"
+  configure_paths_to_sync "test/resources/docker-compose-one-volume.yml" > /dev/null
   assert_equal "/host" "$PATHS_TO_SYNC"
 }
 
 @test "configure_paths_to_sync with one path from command line" {
-  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo"
+  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo" > /dev/null
   assert_equal "/foo" "$PATHS_TO_SYNC"
 }
 
 @test "configure_paths_to_sync with multiple paths from command line" {
-  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo" "/bar" "/baz/blah"
+  configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo" "/bar" "/baz/blah" > /dev/null
   assert_equal "/foo /bar /baz/blah" "$PATHS_TO_SYNC"
 }
 
 @test "configure_paths_to_sync with multiple paths from command line and paths from docker-compose.yml" {
-  configure_paths_to_sync "test/resources/docker-compose-one-volume.yml" "/foo" "/bar" "/baz/blah"
+  configure_paths_to_sync "test/resources/docker-compose-one-volume.yml" "/foo" "/bar" "/baz/blah" > /dev/null
   assert_equal "/foo /bar /baz/blah /host" "$PATHS_TO_SYNC"
 }
 
 @test "configure_excludes with non-existent ignore file results in default excludes" {
-  configure_excludes "not-a-real-ignore-file"
+  configure_excludes "not-a-real-ignore-file" > /dev/null
   assert_equal "$DEFAULT_EXCLUDES" "$EXCLUDES"
 }
 
 @test "configure_excludes with empty ignore file results in default excludes" {
-  configure_excludes "test/resources/ignore-file-empty.txt"
+  configure_excludes "test/resources/ignore-file-empty.txt" > /dev/null
   assert_equal "$DEFAULT_EXCLUDES" "$EXCLUDES"
 }
 
 @test "configure_excludes loads ignores from ignore file" {
-  configure_excludes "test/resources/ignore-file-with-one-entry.txt"
+  configure_excludes "test/resources/ignore-file-with-one-entry.txt" > /dev/null
   assert_equal "foo" "$EXCLUDES"
 }
 
 @test "configure_excludes uses single command line arg" {
-  configure_excludes "not-a-real-ignore-file" "foo"
+  configure_excludes "not-a-real-ignore-file" "foo" > /dev/null
   assert_equal "foo" "$EXCLUDES"
 }
 
 @test "configure_excludes uses multiple command line args" {
-  configure_excludes "not-a-real-ignore-file" "foo" "bar" "baz"
+  configure_excludes "not-a-real-ignore-file" "foo" "bar" "baz" > /dev/null
   assert_equal "foo bar baz" "$EXCLUDES"
 }
 
 @test "configure_excludes uses ignore file and multiple command line args" {
-  configure_excludes "test/resources/ignore-file-with-one-entry.txt" "foo" "bar" "baz"
+  configure_excludes "test/resources/ignore-file-with-one-entry.txt" "foo" "bar" "baz" > /dev/null
   assert_equal "foo bar baz foo" "$EXCLUDES"
 }
 
@@ -217,5 +217,65 @@ load test_helper
   assert_output "/host /a"
 }
 
+@test "assert_non_empty exits on empty value" {
+  run assert_non_empty ""
+  assert_failure
+}
 
+@test "assert_non_empty doesn't exit on non-empty value" {
+  run assert_non_empty "foo"
+  assert_success
+}
+
+@test "env_is_defined returns true for USER variable being defined" {
+  run env_is_defined "USER"
+  assert_success
+}
+
+@test "env_is_defined returns false for non-existent variable being defined" {
+  run env_is_defined "not-a-real-environment-variable"
+  assert_failure
+}
+
+@test "determine_boot2docker_exports_for_env_file handles empty string" {
+  run determine_boot2docker_exports_for_env_file
+  assert_output ""
+}
+
+@test "determine_boot2docker_exports_for_env_file shows an error for an unexpected boot2docker shellinit output" {
+  run determine_boot2docker_exports_for_env_file "not-a-valid-shellinit-format"
+  assert_failure
+}
+
+@test "determine_boot2docker_exports_for_env_file parses a single new export" {
+  shellinit="export NEW_ENV_VARIABLE=VALUE"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output "$(echo -e "$ENV_FILE_COMMENT$shellinit")"
+}
+
+@test "determine_boot2docker_exports_for_env_file parses multiple new exports" {
+  shellinit="export NEW_ENV_VARIABLE_1=VALUE1
+export NEW_ENV_VARIABLE_2=VALUE2
+export NEW_ENV_VARIABLE_3=VALUE3"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output "$(echo -e "$ENV_FILE_COMMENT$shellinit")"
+}
+
+@test "determine_boot2docker_exports_for_env_file skips environment variables already defined" {
+  shellinit="
+export USER=$USER
+export HOME=$HOME"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output ""
+}
+
+@test "determine_boot2docker_exports_for_env_file parses multiple new exports and skips environment variables already defined" {
+  shellinit="
+export NEW_ENV_VARIABLE_1=VALUE1
+export USER=$USER
+export HOME=$HOME 
+export NEW_ENV_VARIABLE_2=VALUE2"
+  run determine_boot2docker_exports_for_env_file "$shellinit"
+  assert_output "$(echo -e "${ENV_FILE_COMMENT}export NEW_ENV_VARIABLE_1=VALUE1\nexport NEW_ENV_VARIABLE_2=VALUE2")"
+}
 

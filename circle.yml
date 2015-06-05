@@ -7,7 +7,6 @@ dependencies:
     - brew install bats coreutils
 test:
   override:
-    - ./test/setup.bats
     - ./test/docker-osx-dev.bats
     # Disabled until we can solve https://github.com/brikis98/docker-osx-dev/issues/7
     # - ./test/integration-test.sh
