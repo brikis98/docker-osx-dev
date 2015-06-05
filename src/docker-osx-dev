@@ -832,7 +832,7 @@ function configure_paths_to_sync {
   fi
 
   if [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
-    log_info "Using default sync paths: ${DEFAULT_PATHS_TO_SYNC[@]}"
+    log_info "Using default sync paths: $DEFAULT_PATHS_TO_SYNC"
     paths_to_sync=($DEFAULT_PATHS_TO_SYNC)
   fi
 
