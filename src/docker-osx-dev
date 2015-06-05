@@ -34,7 +34,7 @@ readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
 readonly DEFAULT_PATHS_TO_SYNC="."
 readonly DEFAULT_EXCLUDES=".git"
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
-readonly RSYNC_FLAGS="--archive --verbose --delete --omit-dir-times --inplace --whole-file"
+readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file"
 
 # Global variables. The should only ever be set by the corresponding 
 # configure_XXX functions.
@@ -43,30 +43,36 @@ EXCLUDES=""
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 BOOT2DOCKER_SSH_KEY=""
 
+#
+# Returns the current timestamp formatted for logging
+#
+function format_timestamp {
+  date +"%Y-%m-%d %H:%M:%S"
+}
 
 # Helper function to log an INFO message. See the log function for details.
 function log_info {
-  log $COLOR_INFO $COLOR_END $LOG_LEVEL_INFO "$@"
+  log "$COLOR_INFO" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_INFO" "$@"
 }
 
 # Helper function to log a WARN message. See the log function for details.
 function log_warn {
-  log $COLOR_WARN $COLOR_END $LOG_LEVEL_WARN "$@"
+  log "$COLOR_WARN" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_WARN" "$@"
 }
 
 # Helper function to log a DEBUG message. See the log function for details.
 function log_debug {
-  log $COLOR_DEBUG $COLOR_END $LOG_LEVEL_DEBUG "$@"
+  log "$COLOR_DEBUG" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_DEBUG" "$@"
 }
 
 # Helper function to log an ERROR message. See the log function for details.
 function log_error {
-  log $COLOR_ERROR $COLOR_END $LOG_LEVEL_ERROR "$@"
+  log "$COLOR_ERROR" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_ERROR" "$@"
 }
 
 # Helper function to log an INSTRUCTIONS message. See the log function for details.
 function log_instructions {
-  log $COLOR_INSTRUCTIONS $COLOR_END $LOG_LEVEL_INSTRUCTIONS "$@"
+  log "$COLOR_INSTRUCTIONS" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_INSTRUCTIONS" "$@"
 }
 
 #
@@ -104,26 +110,27 @@ function index_of {
 }
 
 #
-# Usage: log COLOR COLOR_END LEVEL [MESSAGE ...]
+# Usage: log COLOR COLOR_END TIMESTAMP LEVEL [MESSAGE ...]
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. If no MESSAGE is specified, reads from stdin. The log level is 
-# determined by the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
+# Logs MESSAGE, at time TIMESTAMP, surrounded by COLOR and COLOR_END, to stdout 
+# if the log level is at least LEVEL. If no MESSAGE is specified, reads from 
+# stdin. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL environment 
+# variable.
 #
 # Examples:
 #
-# log "\033[0;32m" "\033[0m" "INFO" "Hello, World"
-#   Prints: "\033[0;32m[INFO] Hello, World\033[0m" to stdout.
+# log "\033[0;32m" "\033[0m" "2015-06-03 15:30:33" "INFO" "Hello, World"
+#   Prints: "\033[0;32m2015-06-03 15:30:33 [INFO] Hello, World\033[0m" to stdout.
 #
-# echo "Hello, World" | log "\033[0;32m" "\033[0m" "ERROR"
-#   Prints: "\033[0;32m[ERROR] Hello, World\033[0m" to stdout.
+# echo "Hello, World" | log "\033[0;32m" "\033[0m" "2015-06-03 15:30:33" "ERROR"
+#   Prints: "\033[0;32m2015-06-03 15:30:33 [ERROR] Hello, World\033[0m" to stdout.
 #
 function log {
-  if [[ "$#" -gt 3 ]]; then
+  if [[ "$#" -gt 4 ]]; then
     do_log "$@"
-  elif [[ "$#" -eq 3 ]]; then
+  elif [[ "$#" -eq 4 ]]; then
     while read message; do 
-      do_log "$1" "$2" "$3" "$message"
+      do_log "$1" "$2" "$3" "$4" "$message"
     done
   else
     echo "Internal error: invalid number of arguments passed to log function: $@"
@@ -132,11 +139,11 @@ function log {
 }
 
 #
-# Usage: do_log COLOR COLOR_END LEVEL MESSAGE ...
+# Usage: do_log COLOR COLOR_END TIMESTAMP LEVEL MESSAGE ...
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL 
-# environment variable.
+# Logs MESSAGE, at time TIMESTAMP, surrounded by COLOR and COLOR_END, to stdout 
+# if the log level is at least LEVEL. The log level is determined by the 
+# DOCKER_OSX_DEV_LOG_LEVEL environment variable.
 #
 # Examples:
 #
@@ -148,15 +155,17 @@ function do_log {
   shift
   local readonly color_end="$1"
   shift
+  local readonly timestamp="$1"
+  shift
   local readonly log_level="$1"
   shift
   local readonly message="$@"
 
   local readonly log_level_index=$(index_of "$log_level" $LOG_LEVELS)
-  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)
+  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)  
 
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
-    echo -e "${color}[${log_level}] ${message}${color_end}"
+    echo -e "${color}${timestamp} [${log_level}] ${message}${color_end}"
   fi   
 }
 
@@ -289,14 +298,11 @@ function initial_sync {
 function watch {
   log_info "Watching: $PATHS_TO_SYNC"
 
-  local readonly excludes=($EXCLUDES)
-  local readonly excludes="${excludes[@]/#/--exclude }"
-  local readonly fswatch_cmd="fswatch -0 $excludes $PATHS_TO_SYNC"
+  local readonly fswatch_cmd="fswatch -0 $PATHS_TO_SYNC"
   log_debug "$fswatch_cmd"
 
   eval "$fswatch_cmd" | while read -d "" file
   do
-    log_info "Detected change in $file"
     sync "$file"
   done  
 }
@@ -503,7 +509,6 @@ function configure_excludes {
 function configure_boot2docker_ssh_key {
   BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
 }
-
 
 #
 # Returns the name of the Boot2Docker VM. This is the official identifier used

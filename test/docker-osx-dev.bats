@@ -47,22 +47,22 @@ load test_helper
 }
 
 @test "log called with color, log level, and message prints to stdout" {
-  run log "color_start" "color_end" "$LOG_LEVEL_INFO" "foo"
-  assert_output "color_start[$LOG_LEVEL_INFO] foocolor_end"
+  run log "color_start" "color_end" "timestamp" "$LOG_LEVEL_INFO" "foo"
+  assert_output "color_starttimestamp [$LOG_LEVEL_INFO] foocolor_end"
 }
 
 @test "log called with color, log level, and multiple messages prints them all to stdout" {
-  run log "color_start" "color_end" "$LOG_LEVEL_INFO" "foo" "bar" "baz"
-  assert_output "color_start[$LOG_LEVEL_INFO] foo bar bazcolor_end"
+  run log "color_start" "color_end" "timestamp" "$LOG_LEVEL_INFO" "foo" "bar" "baz"
+  assert_output "color_starttimestamp [$LOG_LEVEL_INFO] foo bar bazcolor_end"
 }
 
 @test "log called with color and log level reads message from stdin stdout" {
-  result=$(echo "foo" | log "color_start" "color_end" "$LOG_LEVEL_INFO")
-  assert_equal "color_start[$LOG_LEVEL_INFO] foocolor_end" "$result"
+  result=$(echo "foo" | log "color_start" "color_end" "timestamp" "$LOG_LEVEL_INFO")
+  assert_equal "color_starttimestamp [$LOG_LEVEL_INFO] foocolor_end" "$result"
 }
 
 @test "log called with disabled log level prints nothing to stdout" {
-  run log "color_start" "color_end" "$LOG_LEVEL_DEBUG" "foo"
+  run log "color_start" "color_end" "timestamp" "$LOG_LEVEL_DEBUG" "foo"
   assert_output ""
 }
 
