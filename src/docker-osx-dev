@@ -924,13 +924,13 @@ function test_mode {
 #
 # Examples:
 #
-# assert_valid_arg foo
+# assert_valid_arg "foo" "--my-arg"
 #   returns 0
 #
-# assert_valid_arg ""
+# assert_valid_arg "" "--my-arg"
 #   prints error, instructions, and exits with error code 1
 #
-# assert_valid_arg "--foo"
+# assert_valid_arg "--foo" "--my-arg"
 #   prints error, instructions, and exits with error code 1
 #
 function assert_valid_arg {

@@ -279,3 +279,26 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   assert_output "$(echo -e "${ENV_FILE_COMMENT}export NEW_ENV_VARIABLE_1=VALUE1\nexport NEW_ENV_VARIABLE_2=VALUE2")"
 }
 
+@test "assert_valid_arg empty string is not valid" {
+  run assert_valid_arg "" "--foo"
+  assert_failure
+}
+
+@test "assert_valid_arg parameter that starts with a dash is not valid" {
+  run assert_valid_arg "-b" "--foo"
+  assert_failure
+}
+
+@test "assert_valid_arg parameter that starts with two dashes is not valid" {
+  run assert_valid_arg "--bar" "--foo"
+  assert_failure
+}
+
+@test "assert_valid_arg normal string is valid" {
+  run assert_valid_arg "normal-string" "--foo"
+  assert_success
+}
+
+
+
+
