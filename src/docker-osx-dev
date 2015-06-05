@@ -217,7 +217,6 @@ function do_rsync {
 
     local readonly rsync_cmd="rsync $RSYNC_FLAGS $exclude_flags $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
     log_debug "$rsync_cmd"
-
     eval "$rsync_cmd" 2>&1 | log_info
   fi
 }
@@ -235,8 +234,9 @@ function do_rsync {
 #
 function sync {
   local readonly paths_to_sync=("$@")
-
-  for path in "${paths_to_sync[@]}"; do
+  for path in ${paths_to_sync[@]}
+   do
+  log_debug '$path'
     do_rsync "$path"
   done
 }
@@ -284,6 +284,8 @@ function initial_sync {
   boot2docker ssh "$ssh_cmd"
 
   sync "${paths_to_sync[@]}"
+
+
   log_info "Initial sync done"
 }
 
@@ -673,6 +675,7 @@ function handle_command {
   init_boot2docker
   install_rsync_on_boot2docker
   watch_and_sync
-}
+
+  }
 
 handle_command "$@"
