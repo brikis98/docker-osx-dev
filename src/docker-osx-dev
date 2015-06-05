@@ -225,9 +225,10 @@ function do_rsync {
 #
 function sync {
   local readonly paths_to_sync=("$@")
-  for pathRsync in ${paths_to_sync[@]}
+  for path in ${paths_to_sync[@]}
    do
-    do_rsync "$pathRsync"
+  log_debug '$path'
+    do_rsync "$path"
   done
 }
 
@@ -273,7 +274,7 @@ function initial_sync {
   log_debug "Creating parent directories in Docker VM: $ssh_cmd"
   boot2docker ssh "$ssh_cmd"
 
-   sync "${paths_to_sync[@]}"
+  sync "${paths_to_sync[@]}"
 
 
   log_info "Initial sync done"
@@ -307,8 +308,13 @@ function watch {
 # that will keep those paths in sync.
 #
 function watch_and_sync {
+
   initial_sync "$PATHS_TO_SYNC"
   watch
+
+
+
+
 }
 
 #
@@ -623,8 +629,9 @@ function handle_command {
   local docker_compose_file=""
   local ignore_file=""
   local log_level=""
+  local up=""
 
-  while getopts ":s::u::e::c::l::i::h:t" opt; do
+  while getopts ":s::e::c::l::i::h:t" opt; do
     case "$opt" in
       s)
         paths_to_sync+=("$OPTARG")
@@ -649,11 +656,6 @@ function handle_command {
         # Used for testing only
         return 0
         ;;
-      u)
-        # docker compose too
-        $(boot2docker shellinit 2>/dev/null)
-        docker-compose up
-        ;;
       :)
         log_error "Option -$OPTARG requires an argument"
         instructions
@@ -674,6 +676,7 @@ function handle_command {
   init_boot2docker
   install_rsync_on_boot2docker
   watch_and_sync
-}
+
+  }
 
 handle_command "$@"

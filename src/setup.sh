@@ -37,30 +37,36 @@ readonly DOCKER_OSX_DEV_SCRIPT_NAME="docker-osx-dev"
 readonly DOCKER_OSX_DEV_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/$DOCKER_OSX_DEV_SCRIPT_NAME"
 readonly ENV_FILE_COMMENT="\n# docker-osx-dev\n"
 
+#
+# Returns the current timestamp formatted for logging
+#
+function format_timestamp {
+  date +"%Y-%m-%d %H:%M:%S"
+}
 
 # Helper function to log an INFO message. See the log function for details.
 function log_info {
-  log $COLOR_INFO $COLOR_END $LOG_LEVEL_INFO "$@"
+  log "$COLOR_INFO" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_INFO" "$@"
 }
 
 # Helper function to log a WARN message. See the log function for details.
 function log_warn {
-  log $COLOR_WARN $COLOR_END $LOG_LEVEL_WARN "$@"
+  log "$COLOR_WARN" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_WARN" "$@"
 }
 
 # Helper function to log a DEBUG message. See the log function for details.
 function log_debug {
-  log $COLOR_DEBUG $COLOR_END $LOG_LEVEL_DEBUG "$@"
+  log "$COLOR_DEBUG" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_DEBUG" "$@"
 }
 
 # Helper function to log an ERROR message. See the log function for details.
 function log_error {
-  log $COLOR_ERROR $COLOR_END $LOG_LEVEL_ERROR "$@"
+  log "$COLOR_ERROR" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_ERROR" "$@"
 }
 
 # Helper function to log an INSTRUCTIONS message. See the log function for details.
 function log_instructions {
-  log $COLOR_INSTRUCTIONS $COLOR_END $LOG_LEVEL_INSTRUCTIONS "$@"
+  log "$COLOR_INSTRUCTIONS" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_INSTRUCTIONS" "$@"
 }
 
 #
@@ -98,26 +104,27 @@ function index_of {
 }
 
 #
-# Usage: log COLOR COLOR_END LEVEL [MESSAGE ...]
+# Usage: log COLOR COLOR_END TIMESTAMP LEVEL [MESSAGE ...]
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. If no MESSAGE is specified, reads from stdin. The log level is 
-# determined by the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
+# Logs MESSAGE, at time TIMESTAMP, surrounded by COLOR and COLOR_END, to stdout 
+# if the log level is at least LEVEL. If no MESSAGE is specified, reads from 
+# stdin. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL environment 
+# variable.
 #
 # Examples:
 #
-# log "\033[0;32m" "\033[0m" "INFO" "Hello, World"
-#   Prints: "\033[0;32m[INFO] Hello, World\033[0m" to stdout.
+# log "\033[0;32m" "\033[0m" "2015-06-03 15:30:33" "INFO" "Hello, World"
+#   Prints: "\033[0;32m2015-06-03 15:30:33 [INFO] Hello, World\033[0m" to stdout.
 #
-# echo "Hello, World" | log "\033[0;32m" "\033[0m" "ERROR"
-#   Prints: "\033[0;32m[ERROR] Hello, World\033[0m" to stdout.
+# echo "Hello, World" | log "\033[0;32m" "\033[0m" "2015-06-03 15:30:33" "ERROR"
+#   Prints: "\033[0;32m2015-06-03 15:30:33 [ERROR] Hello, World\033[0m" to stdout.
 #
 function log {
-  if [[ "$#" -gt 3 ]]; then
+  if [[ "$#" -gt 4 ]]; then
     do_log "$@"
-  elif [[ "$#" -eq 3 ]]; then
+  elif [[ "$#" -eq 4 ]]; then
     while read message; do 
-      do_log "$1" "$2" "$3" "$message"
+      do_log "$1" "$2" "$3" "$4" "$message"
     done
   else
     echo "Internal error: invalid number of arguments passed to log function: $@"
@@ -126,11 +133,11 @@ function log {
 }
 
 #
-# Usage: do_log COLOR COLOR_END LEVEL MESSAGE ...
+# Usage: do_log COLOR COLOR_END TIMESTAMP LEVEL MESSAGE ...
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL 
-# environment variable.
+# Logs MESSAGE, at time TIMESTAMP, surrounded by COLOR and COLOR_END, to stdout 
+# if the log level is at least LEVEL. The log level is determined by the 
+# DOCKER_OSX_DEV_LOG_LEVEL environment variable.
 #
 # Examples:
 #
@@ -142,15 +149,17 @@ function do_log {
   shift
   local readonly color_end="$1"
   shift
+  local readonly timestamp="$1"
+  shift
   local readonly log_level="$1"
   shift
   local readonly message="$@"
 
   local readonly log_level_index=$(index_of "$log_level" $LOG_LEVELS)
-  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)
+  local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)  
 
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
-    echo -e "${color}[${log_level}] ${message}${color_end}"
+    echo -e "${color}${timestamp} [${log_level}] ${message}${color_end}"
   fi   
 }
 
@@ -306,6 +315,113 @@ function install_dependencies {
 }
 
 #
+# Returns the name of the Boot2Docker VM. This is the official identifier used 
+# by VirtualBox.
+#
+function find_boot2docker_vm_name {
+  boot2docker cfg | grep "^VM = " | sed -e 's/VM = "\(.*\)"/\1/'
+}
+
+#
+# Usage: find_vbox_shared_folders VM_NAME
+#
+# Returns the info for any VirtualBox shared folders for the VM named VM_NAME
+#
+function find_vbox_shared_folders {
+  VBoxManage showvminfo --details --machinereadable "$vm_name" | grep SharedFolderName
+}
+
+#
+# Usage: remove_shared_folders VM_NAME SHARED_FOLDERS
+#
+# Remove the VirtualBox shared folders in SHARED_FOLDERS from the VirtualBox VM
+# named VM_NAME. SHARED_FOLDERS should be the output of the 
+# find_vbox_shared_folders function.
+#
+function remove_shared_folders {
+  local readonly vm_name="$1"
+  local readonly vbox_shared_folders="$2"
+
+  if is_boot2docker_running ; then
+    log_info "Shutting down Boot2Docker to remove shared folders"
+    boot2docker stop
+  fi
+
+  while read -r shared_folders_line; do
+    local readonly folder_name=$(echo "$shared_folders_line" | sed -e 's/SharedFolderNameMachineMapping.*="\(.*\)"/\1/')
+    log_info "Removing shared folder $folder_name"
+    VBoxManage sharedfolder remove "$vm_name" --name "$folder_name"
+  done <<< "$vbox_shared_folders"
+}
+
+#
+# Checks if the Boot2Docker VM has any VirtualBox shared folders. If so, prompt
+# the user if they would like to remove them, as they will void any benefits
+# from using rsync.
+#
+function check_for_shared_folders {
+  local readonly vm_name=$(find_boot2docker_vm_name)
+  local readonly vbox_shared_folders=$(find_vbox_shared_folders)
+
+  if [[ ! -z "$vbox_shared_folders" ]]; then
+    log_error "Found VirtualBox shared folders on your Boot2Docker VM. These may void any performance benefits from using docker-osx-dev:\n$vbox_shared_folders"
+    log_instructions "Would you like this script to remove them?"
+    select choice in "yes" "no"; do
+      case $REPLY in
+        y|Y|yes|Yes ) 
+          remove_shared_folders "$vm_name" "$vbox_shared_folders" 
+          break
+          ;;
+        n|N|no|No ) 
+          log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting." 
+          exit 1
+          ;;
+      esac
+    done
+  fi
+}
+
+#
+# Returns true iff the Boot2Docker VM is initialized
+#
+function is_boot2docker_initialized {
+  boot2docker status >/dev/null 2>&1
+}
+
+#
+# Returns true iff the Boot2Docker VM is running
+#
+function is_boot2docker_running {
+  local readonly status=$(boot2docker status 2>&1)
+  test "$status" = "running"
+}
+
+#
+# Initializes and starts up the Boot2Docker VM.
+#
+function init_boot2docker {
+  if ! is_boot2docker_initialized; then
+    log_info "Initializing Boot2Docker VM"
+    boot2docker init
+  fi
+
+  check_for_shared_folders
+
+  if ! is_boot2docker_running; then
+    log_info "Starting Boot2Docker VM"
+    boot2docker start --vbox-share=disable
+  fi
+}
+
+# 
+# Installs rsync on the Boot2Docker VM, unless it's already installed.
+#
+function install_rsync_on_boot2docker {
+  log_info "Installing rsync in the Boot2Docker image"
+  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
+}
+
+#
 # Adds environment variables necessary for running Boot2Docker
 #
 function add_environment_variables {
@@ -402,104 +518,7 @@ function print_next_steps {
     "> docker-osx-dev\n\t" \
     '> docker run -v $(pwd):/src some-docker-container'
 }
-#
-# Returns the name of the Boot2Docker VM. This is the official identifier used
-# by VirtualBox.
-#
-function find_boot2docker_vm_name {
-  boot2docker cfg | grep "^VM = " | sed -e 's/VM = "\(.*\)"/\1/'
-}
 
-#
-# Usage: find_vbox_shared_folders VM_NAME
-#
-# Returns the info for any VirtualBox shared folders for the VM named VM_NAME
-#
-function find_vbox_shared_folders {
-  VBoxManage showvminfo --details --machinereadable "$vm_name" | grep SharedFolderName
-}
-
-#
-# Usage: remove_shared_folders VM_NAME SHARED_FOLDERS
-#
-# Remove the VirtualBox shared folders in SHARED_FOLDERS from the VirtualBox VM
-# named VM_NAME. SHARED_FOLDERS should be the output of the
-# find_vbox_shared_folders function.
-#
-function remove_shared_folders {
-  local readonly vm_name="$1"
-  local readonly vbox_shared_folders="$2"
-
-  if is_boot2docker_running ; then
-    log_info "Shutting down Boot2Docker to remove shared folders"
-    boot2docker stop
-  fi
-
-  while read -r shared_folders_line; do
-    local readonly folder_name=$(echo "$shared_folders_line" | sed -e 's/SharedFolderNameMachineMapping.*="\(.*\)"/\1/')
-    log_info "Removing shared folder $folder_name"
-    VBoxManage sharedfolder remove "$vm_name" --name "$folder_name"
-  done <<< "$vbox_shared_folders"
-}
-
-#
-# Checks if the Boot2Docker VM has any VirtualBox shared folders. If so, prompt
-# the user if they would like to remove them, as they will void any benefits
-# from using rsync.
-#
-function check_for_shared_folders {
-  local readonly vm_name=$(find_boot2docker_vm_name)
-  local readonly vbox_shared_folders=$(find_vbox_shared_folders)
-
-  if [[ ! -z "$vbox_shared_folders" ]]; then
-    log_error "Found VirtualBox shared folders on your Boot2Docker VM. These may void any performance benefits from using docker-osx-dev:\n$vbox_shared_folders"
-    log_instructions "Would you like this script to remove them?"
-    select choice in "yes" "no"; do
-      case $REPLY in
-        y|Y|yes|Yes )
-          remove_shared_folders "$vm_name" "$vbox_shared_folders"
-          break
-          ;;
-        n|N|no|No )
-          log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting."
-          exit 1
-          ;;
-      esac
-    done
-  fi
-}
-
-#
-# Returns true iff the Boot2Docker VM is initialized
-#
-function is_boot2docker_initialized {
-  boot2docker status >/dev/null 2>&1
-}
-
-#
-# Returns true iff the Boot2Docker VM is running
-#
-function is_boot2docker_running {
-  local readonly status=$(boot2docker status 2>&1)
-  test "$status" = "running"
-}
-
-#
-# Initializes and starts up the Boot2Docker VM.
-#
-function init_boot2docker {
-  if ! is_boot2docker_initialized; then
-    log_info "Initializing Boot2Docker VM"
-    boot2docker init
-  fi
-
-  check_for_shared_folders
-
-  if ! is_boot2docker_running; then
-    log_info "Starting Boot2Docker VM"
-    boot2docker start --vbox-share=disable
-  fi
-}
 #
 # Usage handle_command ARGS ...
 #
@@ -530,8 +549,9 @@ function handle_command {
 
   check_prerequisites
   install_dependencies
-  install_local_scripts "$local_script_path"
   init_boot2docker
+  install_rsync_on_boot2docker
+  install_local_scripts "$local_script_path"
   add_docker_host
   add_environment_variables
   print_next_steps
