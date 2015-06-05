@@ -30,8 +30,6 @@ readonly ENV_FILE_COMMENT="\n# docker-osx-dev\n"
 
 # Script constants
 readonly HOSTS_FILE="/etc/hosts"
-readonly BIN_DIR="/usr/local/bin"
-readonly DOCKER_OSX_DEV_SCRIPT_NAME="docker-osx-dev"
 readonly SYNC_COMMAND="sync"
 readonly INSTALL_COMMAND="install"
 readonly TEST_COMMAND="test_mode"
@@ -572,17 +570,6 @@ function install_dependencies {
 }
 
 #
-# Installs this script into /usr/local/bin
-#
-function install_local_scripts {
-  local readonly script_path="$BIN_DIR/$DOCKER_OSX_DEV_SCRIPT_NAME"
-  log_info "Creating $script_path"
-
-  cat "${BASH_SOURCE[0]}" > "$script_path"
-  chmod +x "$script_path"
-}
-
-#
 # Prints instructions on what the user should do next
 #
 function print_next_steps {
@@ -917,7 +904,6 @@ function install {
   install_dependencies
   init_boot2docker
   install_rsync_on_boot2docker
-  install_local_scripts
   add_docker_host
   add_environment_variables
   print_next_steps

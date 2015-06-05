@@ -41,7 +41,9 @@ Docker development environment on OS X, including installing Docker and
 Boot2Docker:
 
 ```sh
-bash <(curl -s https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/docker-osx-dev) install
+> curl -o /usr/local/bin/docker-osx-dev https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/docker-osx-dev
+> chmod +x /usr/local/bin/docker-osx-dev
+> docker-osx-dev install
 ```
 
 Three notes about the `install` command:
@@ -51,8 +53,8 @@ Three notes about the `install` command:
 2. When the install completes, it prints out instructions for one `source` 
    command you have to run to pick up important environment variables in your 
    current shell, so make sure not to skip that step!
-3. The `docker-osx-dev` script will install itself into `/usr/local/bin` so 
-   you can use it to sync files, as described in the next section.
+3. Once the install completes, you can use the `docker-osx-dev` script to sync 
+   files, as described in the next section.
 
 # Usage
 
