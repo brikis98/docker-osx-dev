@@ -308,13 +308,8 @@ function watch {
 # that will keep those paths in sync.
 #
 function watch_and_sync {
-
   initial_sync "$PATHS_TO_SYNC"
   watch
-
-
-
-
 }
 
 #
@@ -629,7 +624,6 @@ function handle_command {
   local docker_compose_file=""
   local ignore_file=""
   local log_level=""
-  local up=""
 
   while getopts ":s::e::c::l::i::h:t" opt; do
     case "$opt" in
