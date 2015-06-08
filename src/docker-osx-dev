@@ -596,7 +596,7 @@ function print_next_steps {
 #
 function find_path_to_sync_parent {
   local readonly path="$1"
-  local readonly normalized_path=$(greadlink -m "$path")
+  local readonly normalized_path=$(greadlink -m $(eval echo "$path"))
   local readonly paths_to_sync=($PATHS_TO_SYNC)
 
   local path_to_sync=""
@@ -839,7 +839,7 @@ function configure_paths_to_sync {
   local normalized_paths_to_sync=()
   local path=""
   for path in "${paths_to_sync[@]}"; do
-    local normalized_path=$(greadlink -m "$path")
+    local normalized_path=$(greadlink -m $(eval echo "$path"))
     normalized_paths_to_sync+=("$normalized_path")
   done
 

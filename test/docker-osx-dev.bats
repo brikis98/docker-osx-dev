@@ -132,6 +132,11 @@ load test_helper
   assert_equal "/foo /bar /baz/blah /host" "$PATHS_TO_SYNC"
 }
 
+@test "configure_paths_to_sync expands tildes correctly" {
+  configure_paths_to_sync not-a-real-docker-compose-file "~/foo" > /dev/null
+  assert_equal "$HOME/foo" "$PATHS_TO_SYNC"
+}
+
 @test "configure_excludes with non-existent ignore file results in default excludes" {
   configure_excludes "not-a-real-ignore-file" > /dev/null
   assert_equal "$DEFAULT_EXCLUDES" "$EXCLUDES"
