@@ -36,28 +36,31 @@ will continue to use these hacky scripts to keep myself productive.
 
 Prerequisite: [HomeBrew](http://brew.sh/) must be installed.
 
-The `setup.sh` script can setup your entire Docker development environment 
-on OS X, including install Docker, Boot2Docker, and docker-osx-dev:
+The `docker-osx-dev` script has an `install` command that can setup your entire 
+Docker development environment on OS X, including installing Docker and 
+Boot2Docker:
 
 ```sh
-bash <(curl -s https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/setup.sh)
+curl -o /usr/local/bin/docker-osx-dev https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/docker-osx-dev
+chmod +x /usr/local/bin/docker-osx-dev
+docker-osx-dev install
 ```
 
-Three notes about the `setup.sh` script:
+Three notes about the `install` command:
 
 1. It is idempotent, so if you have some of the dependencies installed already, 
    it will **not** overwrite them.
-2. When `setup.sh` completes, it prints out instructions for one `source` 
+2. When the install completes, it prints out instructions for one `source` 
    command you have to run to pick up important environment variables in your 
    current shell, so make sure not to skip that step!
-3. The script installs the `docker-osx-dev` script that you can use for file
-   syncing, as described in the next section.
+3. Once the install completes, you can use the `docker-osx-dev` script to sync 
+   files, as described in the next section.
 
 # Usage
 
-The `setup.sh` script will install, configure, and run Boot2Docker on your 
-system, so the only thing left to do is to tell it what folders to sync using 
-the `docker-osx-dev` script. If you run it with no arguments, it will sync the 
+The `install` command will install, configure, and run Boot2Docker on your 
+system, so the only thing left to do is to run the `docker-osx-dev` script and
+tell it what folders to sync. If you run it with no arguments, it will sync the 
 current folder to the Boot2Docker VM:
 
 ```
@@ -143,7 +146,7 @@ that `http://dockerhost` works as a URL for testing your Docker containers.
 
 # How it works
 
-The `setup.sh` script installs all the software you need:
+The `install command` installs all the software you need:
 
 1. [Docker](https://www.docker.com/)
 2. [Boot2Docker](http://boot2docker.io/)
@@ -152,7 +155,7 @@ The `setup.sh` script installs all the software you need:
 5. [fswatch](https://github.com/emcrisostomo/fswatch)
 6. The `docker-osx-dev` script which you can use to start/stop file syncing
 
-The `setup.sh` script also:
+The `install` command also:
 
 1. Adds the Docker environment variables to your environment file (e.g. 
    `~/.bash_profile`) so it is available at startup.
@@ -190,12 +193,11 @@ tag.
 ## Running the code locally
 
 To run the local version of the code, just clone the repo and run your local 
-copies of `setup.sh` and `docker-osx-dev` without any modifications:
+copy of `docker-osx-dev`:
 
 ```
 > git clone https://github.com/brikis98/docker-osx-dev.git
 > cd docker-osx-dev
-> ./src/setup.sh
 > ./src/docker-osx-dev
 ```
 
@@ -205,7 +207,7 @@ To run the unit tests, install [bats](https://github.com/sstephenson/bats)
 (`brew install bats`) and run the corresponding files in the `test` folder:
 
 ```
-> ./test/setup.bats 
+> ./test/docker-osx-dev.bats 
  ✓ index_of doesn't find match in empty array
  ✓ index_of finds match in 1 item array
  ✓ index_of doesn't find match in 1 item array
@@ -213,7 +215,7 @@ To run the unit tests, install [bats](https://github.com/sstephenson/bats)
 
 [...]
 
-26 tests, 0 failures
+51 tests, 0 failures
 ```
 
 ## Running integration tests
@@ -264,6 +266,9 @@ This code is released under the MIT License. See LICENSE.txt.
 
 # Changelog
 
+* 06/05/15: merged the `setup.sh` and `docker-osx-dev` scripts together since
+  they share a lot of the same code and bash scripts don't have any easy ways
+  to define modules, download dependencies, etc.
 * 05/25/15: Second version released. Removes Vagrant dependency and uses just
   rsync + Boot2Docker. If you had installed the first version, you should 
   delete your `Vagrantfile`, delete the old version of 
