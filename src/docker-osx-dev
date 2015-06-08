@@ -1,6 +1,6 @@
 #!/bin/bash
-# 
-# A script for running a productive development environment with Docker 
+#
+# A script for running a productive development environment with Docker
 # on OS X. See https://github.com/brikis98/docker-osx-dev for more info.
 
 set -e
@@ -13,7 +13,7 @@ readonly COLOR_ERROR='\033[0;31m'
 readonly COLOR_INSTRUCTIONS='\033[0;37m'
 readonly COLOR_END='\033[0m'
 
-# Log levels 
+# Log levels
 readonly LOG_LEVEL_DEBUG="DEBUG"
 readonly LOG_LEVEL_INFO="INFO"
 readonly LOG_LEVEL_WARN="WARN"
@@ -21,6 +21,19 @@ readonly LOG_LEVEL_ERROR="ERROR"
 readonly LOG_LEVEL_INSTRUCTIONS="INSTRUCTIONS"
 readonly LOG_LEVELS="$LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL_ERROR $LOG_LEVEL_INSTRUCTIONS"
 readonly DEFAULT_LOG_LEVEL="$LOG_LEVEL_INFO"
+
+# Environment variable file constants
+readonly BASH_PROFILE="$HOME/.bash_profile"
+readonly BASH_RC="$HOME/.bashrc"
+readonly ZSH_RC="$HOME/.zshrc"
+readonly ENV_FILE_COMMENT="\n# docker-osx-dev\n"
+
+# Script constants
+readonly HOSTS_FILE="/etc/hosts"
+readonly SYNC_COMMAND="sync"
+readonly INSTALL_COMMAND="install"
+readonly TEST_COMMAND="test_mode"
+readonly DEFAULT_COMMAND="$SYNC_COMMAND"
 
 # Boot2Docker constants
 readonly DOCKER_HOST_NAME="dockerhost"
@@ -34,9 +47,9 @@ readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
 readonly DEFAULT_PATHS_TO_SYNC="."
 readonly DEFAULT_EXCLUDES=".git"
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
-readonly RSYNC_FLAGS="--archive --verbose --delete --omit-dir-times --inplace --whole-file"
+readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file"
 
-# Global variables. The should only ever be set by the corresponding 
+# Global variables. The should only ever be set by the corresponding
 # configure_XXX functions.
 PATHS_TO_SYNC=""
 EXCLUDES=""
@@ -44,29 +57,40 @@ CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 BOOT2DOCKER_SSH_KEY=""
 
 
-# Helper function to log an INFO message. See the log function for details.
-function log_info {
-  log $COLOR_INFO $COLOR_END $LOG_LEVEL_INFO "$@"
+################################################################################
+# Utility functions
+################################################################################
+
+#
+# Dumps a 'stack trace' for failed assertions.
+#
+function backtrace {
+  local readonly max_trace=20
+  local frame=0
+  while test $frame -lt $max_trace ; do
+    frame=$(( $frame + 1 ))
+    local bt_file=${BASH_SOURCE[$frame]}
+    local bt_function=${FUNCNAME[$frame]}
+    local bt_line=${BASH_LINENO[$frame-1]}  # called 'from' this line
+    if test -n "${bt_file}${bt_function}" ; then
+      log_error "  at ${bt_file}:${bt_line} ${bt_function}()"
+    fi
+  done
 }
 
-# Helper function to log a WARN message. See the log function for details.
-function log_warn {
-  log $COLOR_WARN $COLOR_END $LOG_LEVEL_WARN "$@"
-}
+#
+# Usage: assert_non_empty VAR
+#
+# Asserts that VAR is not empty and exits with an error code if it is.
+#
+function assert_non_empty {
+  local readonly var="$1"
 
-# Helper function to log a DEBUG message. See the log function for details.
-function log_debug {
-  log $COLOR_DEBUG $COLOR_END $LOG_LEVEL_DEBUG "$@"
-}
-
-# Helper function to log an ERROR message. See the log function for details.
-function log_error {
-  log $COLOR_ERROR $COLOR_END $LOG_LEVEL_ERROR "$@"
-}
-
-# Helper function to log an INSTRUCTIONS message. See the log function for details.
-function log_instructions {
-  log $COLOR_INSTRUCTIONS $COLOR_END $LOG_LEVEL_INSTRUCTIONS "$@"
+  if test -z "$var" ; then
+    log_error "internal error: unexpected empty-string argument"
+    backtrace
+    exit 1
+  fi
 }
 
 #
@@ -82,7 +106,7 @@ function log_instructions {
 #   Returns: 1
 #
 # arr=("abc" "def")
-# index_of foo "${arr[@]}" 
+# index_of foo "${arr[@]}"
 #   Returns -1
 #
 # index_of foo "abc" "def" "foo"
@@ -92,38 +116,95 @@ function index_of {
   local readonly value="$1"
   shift
   local readonly array=("$@")
+  local i=0
 
   for (( i = 0; i < ${#array[@]}; i++ )); do
     if [ "${array[$i]}" = "${value}" ]; then
       echo $i
       return
     fi
-  done 
+  done
 
   echo -1
 }
 
 #
-# Usage: log COLOR COLOR_END LEVEL [MESSAGE ...]
+# Usage: join SEPARATOR ARRAY
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. If no MESSAGE is specified, reads from stdin. The log level is 
-# determined by the DOCKER_OSX_DEV_LOG_LEVEL environment variable.
+# Joins the elements of ARRAY with the SEPARATOR character between them.
 #
 # Examples:
 #
-# log "\033[0;32m" "\033[0m" "INFO" "Hello, World"
-#   Prints: "\033[0;32m[INFO] Hello, World\033[0m" to stdout.
+# join ", " ("A" "B" "C")
+#   Returns: "A, B, C"
 #
-# echo "Hello, World" | log "\033[0;32m" "\033[0m" "ERROR"
-#   Prints: "\033[0;32m[ERROR] Hello, World\033[0m" to stdout.
+function join {
+  local readonly separator="$1"
+  shift
+  local readonly values=("$@")
+
+  printf "%s$separator" "${values[@]}" | sed "s/$separator$//"
+}
+
+################################################################################
+# Logging
+################################################################################
+
+#
+# Returns the current timestamp formatted for logging
+#
+function format_timestamp {
+  date +"%Y-%m-%d %H:%M:%S"
+}
+
+# Helper function to log an INFO message. See the log function for details.
+function log_info {
+  log "$COLOR_INFO" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_INFO" "$@"
+}
+
+# Helper function to log a WARN message. See the log function for details.
+function log_warn {
+  log "$COLOR_WARN" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_WARN" "$@"
+}
+
+# Helper function to log a DEBUG message. See the log function for details.
+function log_debug {
+  log "$COLOR_DEBUG" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_DEBUG" "$@"
+}
+
+# Helper function to log an ERROR message. See the log function for details.
+function log_error {
+  log "$COLOR_ERROR" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_ERROR" "$@"
+}
+
+# Helper function to log an INSTRUCTIONS message. See the log function for details.
+function log_instructions {
+  log "$COLOR_INSTRUCTIONS" "$COLOR_END" "$(format_timestamp)" "$LOG_LEVEL_INSTRUCTIONS" "$@"
+}
+
+#
+# Usage: log COLOR COLOR_END TIMESTAMP LEVEL [MESSAGE ...]
+#
+# Logs MESSAGE, at time TIMESTAMP, surrounded by COLOR and COLOR_END, to stdout
+# if the log level is at least LEVEL. If no MESSAGE is specified, reads from
+# stdin. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL environment
+# variable.
+#
+# Examples:
+#
+# log "\033[0;32m" "\033[0m" "2015-06-03 15:30:33" "INFO" "Hello, World"
+#   Prints: "\033[0;32m2015-06-03 15:30:33 [INFO] Hello, World\033[0m" to stdout.
+#
+# echo "Hello, World" | log "\033[0;32m" "\033[0m" "2015-06-03 15:30:33" "ERROR"
+#   Prints: "\033[0;32m2015-06-03 15:30:33 [ERROR] Hello, World\033[0m" to stdout.
 #
 function log {
-  if [[ "$#" -gt 3 ]]; then
+  if [[ "$#" -gt 4 ]]; then
     do_log "$@"
-  elif [[ "$#" -eq 3 ]]; then
-    while read message; do 
-      do_log "$1" "$2" "$3" "$message"
+  elif [[ "$#" -eq 4 ]]; then
+    local message=""
+    while read message; do
+      do_log "$1" "$2" "$3" "$4" "$message"
     done
   else
     echo "Internal error: invalid number of arguments passed to log function: $@"
@@ -132,11 +213,11 @@ function log {
 }
 
 #
-# Usage: do_log COLOR COLOR_END LEVEL MESSAGE ...
+# Usage: do_log COLOR COLOR_END TIMESTAMP LEVEL MESSAGE ...
 #
-# Logs MESSAGE, surrounded by COLOR and COLOR_END, to stdout if the log level is 
-# at least LEVEL. The log level is determined by the DOCKER_OSX_DEV_LOG_LEVEL 
-# environment variable.
+# Logs MESSAGE, at time TIMESTAMP, surrounded by COLOR and COLOR_END, to stdout
+# if the log level is at least LEVEL. The log level is determined by the
+# DOCKER_OSX_DEV_LOG_LEVEL environment variable.
 #
 # Examples:
 #
@@ -148,6 +229,8 @@ function do_log {
   shift
   local readonly color_end="$1"
   shift
+  local readonly timestamp="$1"
+  shift
   local readonly log_level="$1"
   shift
   local readonly message="$@"
@@ -156,17 +239,423 @@ function do_log {
   local readonly current_log_level_index=$(index_of "$CURRENT_LOG_LEVEL" $LOG_LEVELS)
 
   if [[ "$log_level_index" -ge "$current_log_level_index" ]]; then
-    echo -e "${color}[${log_level}] ${message}${color_end}"
-  fi   
+    echo -e "${color}${timestamp} [${log_level}] ${message}${color_end}"
+  fi
 }
+
+#
+# Usage: assert_valid_log_level LEVEL
+#
+# Asserts that LEVEL is a valid log level--that is, it's one of the values in
+# LOG_LEVELS.
+#
+function assert_valid_log_level {
+  local readonly level="$1"
+  local readonly index=$(index_of "$level" $LOG_LEVELS)
+
+  if [[ "$index" -lt 0 ]]; then
+    echo "Invalid log level specified: $level"
+    instructions
+    exit 1
+  fi
+}
+
+#
+# Usage: configure_log_level LEVEL
+#
+# Set the logging level to LEVEL. LEVEL must be one of the values in LOG_LEVELS.
+#
+function configure_log_level {
+  local readonly level="$1"
+  assert_valid_log_level "$level"
+  CURRENT_LOG_LEVEL="$level"
+}
+
+################################################################################
+# Boot2Docker manipulation
+################################################################################
+
+#
+# Configures the Boot2Docker SSH key by looking into the Boot2Docker config
+#
+function configure_boot2docker_ssh_key {
+  BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
+}
+
+#
+# Returns the name of the Boot2Docker VM. This is the official identifier used
+# by VirtualBox.
+#
+function find_boot2docker_vm_name {
+  boot2docker cfg | grep "^VM = " | sed -e 's/VM = "\(.*\)"/\1/'
+}
+
+#
+# Usage: find_vbox_shared_folders VM_NAME
+#
+# Returns the info for any VirtualBox shared folders for the VM named VM_NAME
+#
+function find_vbox_shared_folders {
+  VBoxManage showvminfo --details --machinereadable "$vm_name" | grep SharedFolderName
+}
+
+#
+# Usage: remove_shared_folders VM_NAME SHARED_FOLDERS
+#
+# Remove the VirtualBox shared folders in SHARED_FOLDERS from the VirtualBox VM
+# named VM_NAME. SHARED_FOLDERS should be the output of the
+# find_vbox_shared_folders function.
+#
+function remove_shared_folders {
+  local readonly vm_name="$1"
+  local readonly vbox_shared_folders="$2"
+
+  if is_boot2docker_running ; then
+    log_info "Shutting down Boot2Docker to remove shared folders"
+    boot2docker stop
+  fi
+
+  local shared_folders_line=""
+  while read -r shared_folders_line; do
+    local readonly folder_name=$(echo "$shared_folders_line" | sed -e 's/SharedFolderNameMachineMapping.*="\(.*\)"/\1/')
+    log_info "Removing shared folder $folder_name"
+    VBoxManage sharedfolder remove "$vm_name" --name "$folder_name"
+  done <<< "$vbox_shared_folders"
+}
+
+#
+# Checks if the Boot2Docker VM has any VirtualBox shared folders. If so, prompt
+# the user if they would like to remove them, as they will void any benefits
+# from using rsync.
+#
+function check_for_shared_folders {
+  local readonly vm_name=$(find_boot2docker_vm_name)
+  local readonly vbox_shared_folders=$(find_vbox_shared_folders)
+
+  if [[ ! -z "$vbox_shared_folders" ]]; then
+    log_error "Found VirtualBox shared folders on your Boot2Docker VM. These may void any performance benefits from using docker-osx-dev:\n$vbox_shared_folders"
+    log_instructions "Would you like this script to remove them?"
+
+    local choice=""
+    select choice in "yes" "no"; do
+      case $REPLY in
+        y|Y|yes|Yes )
+          remove_shared_folders "$vm_name" "$vbox_shared_folders"
+          break
+          ;;
+        n|N|no|No )
+          log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting."
+          exit 1
+          ;;
+      esac
+    done
+  fi
+}
+
+#
+# Returns true iff the Boot2Docker VM is initialized
+#
+function is_boot2docker_initialized {
+  boot2docker status >/dev/null 2>&1
+}
+
+#
+# Returns true iff the Boot2Docker VM is running
+#
+function is_boot2docker_running {
+  local readonly status=$(boot2docker status 2>&1)
+  test "$status" = "running"
+}
+
+#
+# Initializes and starts up the Boot2Docker VM.
+#
+function init_boot2docker {
+  if ! is_boot2docker_initialized; then
+    log_info "Initializing Boot2Docker VM"
+    boot2docker init
+  fi
+
+  check_for_shared_folders
+
+  if ! is_boot2docker_running; then
+    log_info "Starting Boot2Docker VM"
+    boot2docker start --vbox-share=disable
+  fi
+}
+
+#
+# Installs rsync on the Boot2Docker VM, unless it's already installed.
+#
+function install_rsync_on_boot2docker {
+  log_info "Installing rsync in the Boot2Docker image"
+  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
+}
+
+################################################################################
+# Environment setup
+################################################################################
+
+#
+# Usage: env_is_defined VAR
+#
+# Checks if a new SHELL has VAR defined in its environment.
+# Returns 0 when VAR is defined for new shells, 1 otherwise.
+#
+function env_is_defined {
+  local readonly var="$1"
+  assert_non_empty "$var"
+
+  local readonly setting=$(env | grep "^${var}=")
+  test -n "$setting"
+}
+
+#
+# Usage: get_env_file
+#
+# Tries to find and return the proper environment file for the current user.
+#
+# Examples:
+#
+# get_env_file
+#   Returns: ~/.bash_profile
+#
+function get_env_file {
+  if [[ -f "$BASH_RC" ]]; then
+    echo "$BASH_RC"
+  elif [[ -f "$ZSH_RC" ]]; then
+    echo "$ZSH_RC"
+  else
+    echo "$BASH_PROFILE"
+  fi
+}
+
+#
+# Adds environment variables necessary for running Boot2Docker
+#
+function add_environment_variables {
+  local readonly env_file=$(get_env_file)
+  local readonly boot2docker_exports=$(boot2docker shellinit 2>/dev/null)
+  local readonly exports_to_add_to_env_file=$(determine_boot2docker_exports_for_env_file "$boot2docker_exports")
+
+  if [[ ! -z "$exports_to_add_to_env_file" ]]; then
+    log_info "Adding new environment variables to $env_file: $exports_to_add_to_env_file"
+    echo -e "$exports_to_add_to_env_file" >> "$env_file"
+    log_instructions "To pick up important new environment variables in the current shell, run:\n\tsource $env_file"
+  else
+    log_warn "All Boot2Docker environment variables already defined, will not overwrite"
+  fi
+}
+
+#
+# Usage: determine_boot2docker_exports_for_env_file BOOT2DOCKER_SHELLINIT_EXPORTS
+#
+# Parses BOOT2DOCKER_SHELLINIT_EXPORTS, which should be the output of the
+# boot2docker shelinit command, and returns a string of the exports that are
+# not already in the current environment.
+#
+function determine_boot2docker_exports_for_env_file {
+  local readonly boot2docker_exports="$1"
+
+  local exports_to_add_to_env_file=()
+  local export_line=""
+
+  while read -r export_line; do
+    if [[ ! -z "$export_line" ]]; then
+      local readonly var_name=$(echo "$export_line" | sed -ne 's/export \(.*\)=.*/\1/p')
+
+      if [[ -z "$var_name" ]]; then
+        log_error "Unexpected entry from boot2docker shellinit: $export_line"
+        exit 1
+      elif ! env_is_defined "$var_name"; then
+        exports_to_add_to_env_file+=("$export_line")
+      fi
+    fi
+  done <<< "$boot2docker_exports"
+
+  if [[ "${#exports_to_add_to_env_file[@]}" -gt 0 ]]; then
+    local exports_as_string=$(join "\n" "${exports_to_add_to_env_file[@]}")
+    echo -e "$ENV_FILE_COMMENT$exports_as_string"
+  else
+    echo ""
+  fi
+}
+
+#
+# Adds Docker entries to /etc/hosts
+#
+function add_docker_host {
+  if grep -q "^[^#]*$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
+    log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not overwrite"
+  else
+    local readonly boot2docker_ip=$(boot2docker ip)
+    local readonly host_entry="\n$boot2docker_ip $DOCKER_HOST_NAME"
+
+    log_info "Adding $DOCKER_HOST_NAME entry to $HOSTS_FILE so you can use http://$DOCKER_HOST_NAME URLs for testing"
+    log_instructions "Modifying $HOSTS_FILE requires sudo privileges, please enter your password."
+    sudo -k sh -c "echo \"$host_entry\" >> $HOSTS_FILE"
+  fi
+}
+
+#
+# Checks if HomeBrew is installed.
+#
+function is_brew_installed {
+  type brew > /dev/null 2>&1
+}
+
+#
+# Checks if MacPorts is installed.
+#
+function is_port_installed {
+  type port > /dev/null 2>&1
+}
+
+#
+# Checks if all MacPorts requirements are met.
+#
+function check_port_prerequisites {
+  if ! type boot2docker > /dev/null 2>&1 ; then
+    log_error "MacPorts-based setup expects Docker Compose to be preinstalled."
+    exit 1
+  elif ! type docker-compose > /dev/null 2>&1 ; then
+    log_error "MacPorts-based setup expects Boot2Docker to be preinstalled."
+    exit 1
+  fi
+}
+
+################################################################################
+# Installation
+################################################################################
+
+#
+# Checks that this script can be run on the current machine and exits with an
+# error code if any of the requirements are missing.
+#
+function check_prerequisites {
+  local readonly os=$(uname)
+
+  if [[ ! "$os" = "Darwin" ]]; then
+    log_error "This script should only be run on OS X"
+    exit 1
+  fi
+
+  if [[ ! is_brew_installed || ! is_port_installed ]] ; then
+    log_error "This script requires HomeBrew, but it's not installed. Aborting."
+    exit 1
+  fi
+}
+
+#
+# Usage: brew_install PACKAGE_NAME READABLE_NAME COMMAND_NAME USE_CASK
+#
+# Checks if PACKAGE_NAME is already installed by using brew as well as by
+# searching for COMMAND_NAME on the PATH and if it can't find it, uses brew to
+# install PACKAGE_NAME. If USE_CASK is set to true, uses brew cask
+# instead.
+#
+# Examples:
+#
+# brew_install virtualbox VirtualBox vboxwebsrv true
+#   Result: checks if brew cask already has virtualbox installed or vboxwebsrv
+#   is on the PATH, and if not, uses brew cask to install it.
+#
+function brew_install {
+  local readonly package_name="$1"
+  local readonly readable_name="$2"
+  local readonly command_name="$3"
+  local readonly use_cask="$4"
+
+  local brew_command="brew"
+  if [[ "$use_cask" = true ]]; then
+    brew_command="brew cask"
+  fi
+
+  if eval "$brew_command list $package_name" > /dev/null 2>&1 ; then
+    log_warn "$readable_name is already installed by HomeBrew, skipping"
+  elif type "$command_name" > /dev/null 2>&1 ; then
+    log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
+  else
+    log_info "Installing $readable_name"
+    eval "$brew_command install $package_name"
+  fi
+}
+
+#
+# Usage: port_install PACKAGE_NAME READABLE_NAME COMMAND_NAME
+#
+# Checks if PACKAGE_NAME is already installed by using port as well as by
+# searching for COMMAND_NAME on the PATH and if it can't find it, uses port to
+# install PACKAGE_NAME.
+#
+# `port list` is used with grep for increased reliability since list command
+# can return empty string or unrelated warning.
+#
+function port_install {
+  local readonly package_name="$1"
+  local readonly readable_name="$2"
+  local readonly command_name="$3"
+
+  if [ `port installed | grep "$package_name\s@.*(active)$" | wc -l` == "1" ] ; then
+    log_warn "$readable_name is already installed by MacPorts, skipping"
+  elif type "$command_name" > /dev/null 2>&1 ; then
+    log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
+  else
+    log_info "Installing $readable_name"
+    eval "sudo port install $package_name"
+  fi
+}
+
+#
+# Installs all the dependencies for docker-osx-dev.
+#
+function install_dependencies {
+  if is_brew_installed ; then
+
+    log_info "Updating HomeBrew"
+    brew update
+
+    brew_install "caskroom/cask/brew-cask" "Cask" "" false
+    brew_install "virtualbox" "VirtualBox" "VBoxManage" true
+    brew_install "boot2docker" "Boot2Docker" "boot2docker" false
+    brew_install "docker-compose" "Docker Compose" "docker-compose" false
+    brew_install "fswatch" "fswatch" "fswatch" false
+    brew_install "coreutils" "GNU core utilities" "greadlink" false
+
+  elif is_port_installed ; then
+
+    log_info "Updating MacPorts"
+    sudo port selfupdate
+
+    port_install "virtualbox" "VirtualBox" "VBoxManage"
+    port_install "boot2docker" "Boot2Docker" "boot2docker"
+    port_install "fswatch" "fswatch" "fswatch"
+    port_install "coreutils" "GNU core utilities" "greadlink"
+  fi
+}
+
+#
+# Prints instructions on what the user should do next
+#
+function print_next_steps {
+  log_info "docker-osx-dev setup has completed successfully."
+  log_instructions "You can now start file syncing using the docker-osx-dev" \
+    "script and run Docker containers using docker run. Example:\n\t" \
+    "> docker-osx-dev\n\t" \
+    '> docker run -v $(pwd):/src some-docker-container'
+}
+
+################################################################################
+# File syncing
+################################################################################
 
 #
 # Usage: find_path_to_sync_parent PATH
 #
 # Finds the parent folder of PATH from the PATHS_TO_SYNC global variable. When
-# using rsync, we want to sync the exact folders the user specified when 
+# using rsync, we want to sync the exact folders the user specified when
 # running the docker-osx-dev script. However, when we we use fswatch, it gives
-# us the path of files that changed, which may be deeply nested inside one of 
+# us the path of files that changed, which may be deeply nested inside one of
 # the folders we're supposed to keep in sync. Therefore, this function lets us
 # transform one of these nested paths back to one of the top level rsync paths.
 #
@@ -175,6 +664,7 @@ function find_path_to_sync_parent {
   local readonly normalized_path=$(greadlink -m "$path")
   local readonly paths_to_sync=($PATHS_TO_SYNC)
 
+  local path_to_sync=""
   for path_to_sync in "${paths_to_sync[@]}"; do
     if [[ "$normalized_path" == $path_to_sync* ]]; then
       echo "$path_to_sync"
@@ -185,7 +675,7 @@ function find_path_to_sync_parent {
 
 #
 # Usage: rsync PATH
-# 
+#
 # Uses rsync to sync PATH to the same PATH on the Boot2Docker VM.
 #
 # Examples:
@@ -202,7 +692,8 @@ function do_rsync {
   else
     local readonly parent_folder=$(dirname "$path_to_sync")
 
-    local readonly excludes=($EXCLUDES)
+    local excludes=()
+    read -a excludes <<< "$EXCLUDES"
     local readonly exclude_flags="${excludes[@]/#/--exclude }"
     local readonly rsh_flag="--rsh=\"ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no\""
 
@@ -226,28 +717,11 @@ function do_rsync {
 #
 function sync {
   local readonly paths_to_sync=("$@")
+  local path=""
 
   for path in "${paths_to_sync[@]}"; do
     do_rsync "$path"
   done
-}
-
-#
-# Usage: join SEPARATOR ARRAY
-#
-# Joins the elements of ARRAY with the SEPARATOR character between them.
-# 
-# Examples:
-#
-# join ", " ("A" "B" "C")
-#   Returns: "A, B, C"
-#
-function join {
-  local readonly separator="$1"
-  shift
-  local readonly values=("$@")  
-  
-  printf "%s$separator" "${values[@]}" | sed "s/$separator$//"
 }
 
 #
@@ -257,14 +731,16 @@ function join {
 # all necessary parent directories and permissions.
 #
 function initial_sync {
-  local readonly paths_to_sync=("$@")
+  local readonly paths_to_sync=($PATHS_TO_SYNC)
   log_info "Performing initial sync of paths: ${paths_to_sync[@]}"
 
   local dirs_to_create=()
+  local path=""
+
   for path in "${paths_to_sync[@]}"; do
     local readonly parent_dir=$(dirname "$path")
     dirs_to_create+=("$parent_dir")
-  done  
+  done
 
   local readonly dir_string=$(join " " "${dirs_to_create[@]}")
   local readonly mkdir_string="sudo mkdir -p $dir_string"
@@ -287,65 +763,59 @@ function initial_sync {
 function watch {
   log_info "Watching: $PATHS_TO_SYNC"
 
-  local readonly excludes=($EXCLUDES)
-  local readonly excludes="${excludes[@]/#/--exclude }"
-  local readonly fswatch_cmd="fswatch -0 $excludes $PATHS_TO_SYNC"
+  local readonly fswatch_cmd="fswatch -0 $PATHS_TO_SYNC"
   log_debug "$fswatch_cmd"
 
+  local file=""
   eval "$fswatch_cmd" | while read -d "" file
   do
-    log_info "Detected change in $file"
     sync "$file"
-  done  
+  done
 }
 
-#
-# Usage: watch_and_sync
-#
-# Syncs the paths in the global variable PATHS_TO_SYNC. Kicks off a file watcher
-# that will keep those paths in sync.
-#
-function watch_and_sync {
-  initial_sync "$PATHS_TO_SYNC"
-  watch
-}
+################################################################################
+# User input and command line args
+################################################################################
 
 #
 # Usage: instructions
 #
 # Prints the usage instructions for this script to stdout.
-# 
+#
 function instructions {
-  echo -e "Usage: docker-osx-dev [-s PATH] [-e PATH] [-l LOG_LEVEL] [-c COMPOSE_FILE] [-i IGNORE_FILE] [-h]"
-  echo -e 
-  echo -e "Options, if supplied, have the following meanings:" 
-  echo -e 
-  echo -e "-s PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
-  echo -e "-e PATH\t\t\tExclude PATH while syncing. Wildcards are allowed, but make sure to quote them. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
-  echo -e "-c COMPOSE_FILE\t\tRead in this docker-compose file and sync any volumes within it. Default: $DEFAULT_COMPOSE_FILE"
-  echo -e "-i IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing. Default: $DEFAULT_IGNORE_FILE"
-  echo -e "-l LOG_LEVEL\t\tSpecify the logging level. One of: $LOG_LEVELS. Default: ${DEFAULT_LOG_LEVEL}"
-  echo -e "-h\t\t\tPrint this help text."
-  echo -e 
+  echo -e
+  echo -e "Usage: docker-osx-dev [COMMAND] [OPTIONS]"
+  echo -e
+  echo -e "Commands:"
+  echo -e "  $SYNC_COMMAND\t\tStart file syncing. This is the default if no COMMAND is specified."
+  echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
+  echo -e
+  echo -e "Options:"
+  echo -e "  -s, --sync-path PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
+  echo -e "  -e, --exclude-path PATH\t\tExclude PATH while syncing. Behaves identically to rsync's --exclude parameter. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
+  echo -e "  -c, --compose-file COMPOSE_FILE\tRead in this docker-compose file and sync any volumes specified in it. Default: $DEFAULT_COMPOSE_FILE"
+  echo -e "  -i, --ignore-file IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing (see --exclude). Default: $DEFAULT_IGNORE_FILE"
+  echo -e "  -l, --log-level LOG_LEVEL\t\tSpecify the logging level. One of: $LOG_LEVELS. Default: ${DEFAULT_LOG_LEVEL}"
+  echo -e "  -h, --help\t\t\t\tPrint this help text and exit."
+  echo -e
   echo -e "Overview:"
-  echo -e 
+  echo -e
   echo -e "docker-osx-dev is a script you can use to sync folders to the Boot2Docker VM using rsync."
   echo -e "It's an alternative to using VirtualBox shared folders, which are agonizingly slow and break file watchers."
   echo -e "For more info, see: https://github.com/brikis98/docker-osx-dev"
   echo -e
   echo -e "Example workflow:"
-  echo -e 
-  echo -e "\t> docker-osx-dev -s /host-folder"
-  echo -e "\t> docker run -v /host-folder:/guest-folder some-docker-image"
-  echo -e 
-  echo -e "After you run the commands above, /host-folder on OS X will be kept in sync with /guest-folder in some-docker-image."
-  echo -e 
+  echo -e "  > docker-osx-dev -s /host-folder"
+  echo -e "  > docker run -v /host-folder:/guest-folder some-docker-image"
+  echo -e
+  echo -e "  After you run the commands above, /host-folder on OS X will be kept in sync with /guest-folder in some-docker-image."
+  echo -e
 }
 
 #
 # Usage: load_paths_from_docker_compose DOCKER_COMPOSE_FILE
 #
-# Parses out all volumes: entries from the docker-compose file 
+# Parses out all volumes: entries from the docker-compose file
 # DOCKER_COMPOSE_FILE. This is a very hacky function that just uses regex
 # instead of a proper yaml parser. If it proves to be fragile, it will need to
 # be replaced.
@@ -356,6 +826,7 @@ function load_paths_from_docker_compose {
   local paths=()
 
   if [[ -f "$yaml_file_path" ]]; then
+    local line=""
     while read line; do
       if $in_volumes_block; then
         if [[ "${line:0:2}" = "- " ]]; then
@@ -381,7 +852,7 @@ function load_paths_from_docker_compose {
 # Usage: load_ignore_paths IGNORE_FILE
 #
 # Parse the paths from IGNORE_FILE that are of the format used by .gitignore and
-# .dockerignore: that is, each line contains a single path, and lines that 
+# .dockerignore: that is, each line contains a single path, and lines that
 # start with a pound sign are treated as comments.
 #
 function load_ignore_paths {
@@ -389,6 +860,7 @@ function load_ignore_paths {
   local paths=()
 
   if [[ -f "$ignore_file" ]]; then
+    local line=""
     while read line; do
       if [[ "${line:0:1}" != "#" ]]; then
         paths+=("$line")
@@ -400,41 +872,21 @@ function load_ignore_paths {
 }
 
 #
-# Usage: configure_log_level LEVEL
-#
-# Set the logging level to LEVEL. LEVEL must be one of the values in LOG_LEVELS.
-# If successful, returns LEVEL. Otherwise, exits with an error message.
-#
-function configure_log_level {
-  local readonly level="${1:-$DEFAULT_LOG_LEVEL}"
-  local readonly index=$(index_of "$level" $LOG_LEVELS)
-  
-  if [[ "$index" -ge 0 ]]; then
-    CURRENT_LOG_LEVEL="$level"
-    echo "Log level: $CURRENT_LOG_LEVEL"
-  else
-    log_error "Invalid log level specified: $level"
-    instructions
-    exit 1
-  fi  
-}
-
-#
 # Usage: configure_paths_to_sync COMPOSE_FILE [PATHS_FROM_CMD_LINE ...]
 #
-# Set \the paths that should be synced to the Boot2Docker VM. These 
-# paths will be read from the Docker Compose file COMPOSE_FILE as well as paths 
-# specified via the command line as PATHS_FROM_CMD_LINE. If no paths are found 
-# in either place, this function will fall back to DEFAULT_PATHS_TO_SYNC. 
+# Set \the paths that should be synced to the Boot2Docker VM. These
+# paths will be read from the Docker Compose file COMPOSE_FILE as well as paths
+# specified via the command line as PATHS_FROM_CMD_LINE. If no paths are found
+# in either place, this function will fall back to DEFAULT_PATHS_TO_SYNC.
 #
 function configure_paths_to_sync {
-  local readonly compose_file="${1:-$DEFAULT_COMPOSE_FILE}"
+  local readonly compose_file="$1"
   shift
   local readonly paths_to_sync_from_cmd_line=("$@")
   local readonly paths_to_sync_from_compose_file=($(load_paths_from_docker_compose "$compose_file"))
 
   local paths_to_sync=()
-  if [[ "${#paths_to_sync_from_cmd_line[@]}" -gt 0 ]]; then    
+  if [[ "${#paths_to_sync_from_cmd_line[@]}" -gt 0 ]]; then
     log_info "Using sync paths from command line args: ${paths_to_sync_from_cmd_line[@]}"
     paths_to_sync+=("${paths_to_sync_from_cmd_line[@]}")
   fi
@@ -445,18 +897,19 @@ function configure_paths_to_sync {
   fi
 
   if [[ "${#paths_to_sync[@]}" -eq 0 ]]; then
-    log_info "Using default sync paths: ${DEFAULT_PATHS_TO_SYNC[@]}"
+    log_info "Using default sync paths: $DEFAULT_PATHS_TO_SYNC"
     paths_to_sync=($DEFAULT_PATHS_TO_SYNC)
   fi
 
   local normalized_paths_to_sync=()
+  local path=""
   for path in "${paths_to_sync[@]}"; do
     local normalized_path=$(greadlink -m "$path")
     normalized_paths_to_sync+=("$normalized_path")
   done
 
   PATHS_TO_SYNC="${normalized_paths_to_sync[@]}"
-  log_info "Paths to sync: $PATHS_TO_SYNC"
+  log_info "Complete list of paths to sync: $PATHS_TO_SYNC"
 }
 
 #
@@ -464,13 +917,13 @@ function configure_paths_to_sync {
 #
 # Sets the paths that should be excluded when syncing files to the Boot2Docker
 # VM. EXCLUDE_PATHS_FROM_CMD_LINE are paths specified as command line arguments
-# and will take precedence. If none are specified, this function will try to 
-# read the ignore file (see load_ignore_paths) at IGNORE_FILE and use those 
-# entries as excludes. If that fails, this function will fall back to 
+# and will take precedence. If none are specified, this function will try to
+# read the ignore file (see load_ignore_paths) at IGNORE_FILE and use those
+# entries as excludes. If that fails, this function will fall back to
 # DEFAULT_EXCLUDES.
 #
 function configure_excludes {
-  local readonly ignore_file="${1:-$DEFAULT_IGNORE_FILE}"
+  local readonly ignore_file="$1"
   shift
   local readonly excludes_from_cmd_line=("$@")
   local readonly excludes_from_ignore_file=($(load_ignore_paths "$ignore_file"))
@@ -488,77 +941,161 @@ function configure_excludes {
 
   if [[ "${#excludes[@]}" -eq 0 ]]; then
     log_info "Using default exclude paths: $DEFAULT_EXCLUDES"
-    excludes=($DEFAULT_EXCLUDES)    
+    excludes=($DEFAULT_EXCLUDES)
   fi
 
   EXCLUDES="${excludes[@]}"
-  log_info "Paths to exclude: $EXCLUDES"
+  log_info "Complete list of paths to exclude: $EXCLUDES"
 }
 
-# 
-# Configures the Boot2Docker SSH key by looking into the Boot2Docker config
 #
-function configure_boot2docker_ssh_key {
-  BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
+# Runs the docker-osx-dev script to kick off file watching and syncing.
+#
+function watch_and_sync {
+  log_info "Starting docker-osx-dev file syncing"
+  configure_boot2docker_ssh_key
+  init_boot2docker
+  install_rsync_on_boot2docker
+  initial_sync
+  watch
+}
+
+#
+# Installs the docker-osx-dev script, all of its dependencies, and configures
+# the environment.
+#
+function install {
+  log_info "Starting install of docker-osx-dev"
+  install_dependencies
+  init_boot2docker
+  install_rsync_on_boot2docker
+  add_docker_host
+  add_environment_variables
+  print_next_steps
+}
+
+#
+# Executes no code or side effects. Used only at test time to make it easy to
+# "source" this script.
+#
+function test_mode {
+  return 0
+}
+
+#
+# Usage: assert_valid_arg ARG ARG_NAME
+#
+# Asserts that ARG is not empty and is not a flag (i.e. starts with a - or --)
+#
+# Examples:
+#
+# assert_valid_arg "foo" "--my-arg"
+#   returns 0
+#
+# assert_valid_arg "" "--my-arg"
+#   prints error, instructions, and exits with error code 1
+#
+# assert_valid_arg "--foo" "--my-arg"
+#   prints error, instructions, and exits with error code 1
+#
+function assert_valid_arg {
+  local readonly arg="$1"
+  local readonly arg_name="$2"
+
+  if [[ -z "$arg" || "${arg:0:1}" = "-" ]]; then
+    log_error "You must provide a value for argument $arg_name"
+    instructions
+    exit 1
+  fi
 }
 
 #
 # Usage handle_command ARGS ...
 #
-# Parses ARGS to kick off this script. See the output of the instructions 
+# Parses ARGS to kick off this script. See the output of the instructions
 # function for details.
 #
 function handle_command {
-  local paths_to_sync=()
-  local excludes=()  
-  local docker_compose_file=""
-  local ignore_file=""
-  local log_level=""
+  check_prerequisites
 
-  while getopts ":s::e::c::l::i::h:t" opt; do
-    case "$opt" in
-      s)
-        paths_to_sync+=("$OPTARG")
+  local cmd="$DEFAULT_COMMAND"
+  local log_level="$DEFAULT_LOG_LEVEL"
+  local docker_compose_file="$DEFAULT_COMPOSE_FILE"
+  local ignore_file="$DEFAULT_IGNORE_FILE"
+  local paths_to_sync=()
+  local excludes=()
+
+  while [[ $# > 0 ]]; do
+    key="$1"
+
+    case $key in
+      "$SYNC_COMMAND")
+        cmd="$SYNC_COMMAND"
         ;;
-      e)
-        excludes+=("$OPTARG")
+      "$INSTALL_COMMAND")
+        cmd="$INSTALL_COMMAND"
         ;;
-      c)
-        docker_compose_file="$OPTARG"
+      "$TEST_COMMAND")
+        cmd="$TEST_COMMAND"
         ;;
-      i)
-        ignore_file="$OPTARG"
+      -s|--sync-path)
+        assert_valid_arg "$2" "$key"
+        paths_to_sync+=("$2")
+        shift
         ;;
-      l)
-        log_level="$OPTARG"
+      -e|--exclude-path)
+        assert_valid_arg "$2" "$key"
+        excludes+=("$2")
+        shift
         ;;
-      h)
+      -c|--compose-file)
+        assert_valid_arg "$2" "$key"
+        docker_compose_file="$2"
+        shift
+        ;;
+      -i|--ignore-file)
+        assert_valid_arg "$2" "$key"
+        ignore_file="$2"
+        shift
+        ;;
+      -l|--log-level)
+        assert_valid_arg "$2" "$key"
+        log_level="$2"
+        shift
+        ;;
+      -h|--help)
         instructions
         exit 0
         ;;
-      t)
-        # Used for testing only
-        return 0
-        ;;
-      :)
-        log_error "Option -$OPTARG requires an argument"
-        instructions
-        exit 1
-        ;;
-      \?) 
-        log_error "Invalid option: -$OPTARG"
+      *)
+        log_error "Unrecognized argument: $key"
         instructions
         exit 1
         ;;
     esac
+
+    shift
   done
 
-  configure_log_level "$log_level"
-  configure_paths_to_sync "$docker_compose_file" "${paths_to_sync[@]}"
-  configure_excludes "$ignore_file" "${excludes[@]}"
-  configure_boot2docker_ssh_key
-
-  watch_and_sync
+  case "$cmd" in
+    "$SYNC_COMMAND")
+      configure_log_level "$log_level"
+      configure_paths_to_sync "$docker_compose_file" "${paths_to_sync[@]}"
+      configure_excludes "$ignore_file" "${excludes[@]}"
+      watch_and_sync
+      ;;
+    "$INSTALL_COMMAND")
+      configure_log_level "$log_level"
+      install
+      ;;
+    "$TEST_COMMAND")
+      test_mode
+      ;;
+    *)
+      log_error "Internal error: unrecognized command $cmd"
+      exit 1
+      ;;
+  esac
 }
 
 handle_command "$@"
