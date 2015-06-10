@@ -71,7 +71,7 @@ current folder to the Boot2Docker VM:
 ```
 
 Alternatively, you can use the `-s` flag to specify what folders to sync
-(run `docker-sox-dev -h` to see all supported options):
+(run `docker-osx-dev -h` to see all supported options):
 
 ```
 > docker-osx-dev -s /foo/bar
