@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 #
-# Unit tests for docker-osx-dev. To run these tests, you must have bats 
-# installed. See https://github.com/sstephenson/bats 
+# Unit tests for docker-osx-dev. To run these tests, you must have bats
+# installed. See https://github.com/sstephenson/bats
 
 source src/docker-osx-dev "test_mode"
 load test_helper
@@ -109,7 +109,7 @@ load test_helper
 
 @test "configure_paths_to_sync with docker-compose file with no volumes results in syncing the current directory" {
   configure_paths_to_sync test/resources/docker-compose-no-volumes.yml > /dev/null
-  assert_equal "$(pwd)" "$PATHS_TO_SYNC" 
+  assert_equal "$(pwd)" "$PATHS_TO_SYNC"
 }
 
 @test "configure_paths_to_sync reads paths to sync from docker-compose file" {
@@ -278,7 +278,7 @@ export HOME=$HOME"
   shellinit="
 export NEW_ENV_VARIABLE_1=VALUE1
 export USER=$USER
-export HOME=$HOME 
+export HOME=$HOME
 export NEW_ENV_VARIABLE_2=VALUE2"
   run determine_boot2docker_exports_for_env_file "$shellinit"
   assert_output "$(echo -e "${ENV_FILE_COMMENT}export NEW_ENV_VARIABLE_1=VALUE1\nexport NEW_ENV_VARIABLE_2=VALUE2")"
@@ -303,7 +303,3 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   run assert_valid_arg "normal-string" "--foo"
   assert_success
 }
-
-
-
-
