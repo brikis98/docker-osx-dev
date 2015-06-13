@@ -303,3 +303,39 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   run assert_valid_arg "normal-string" "--foo"
   assert_success
 }
+
+@test "find_path_to_sync_parent should find exact matches" {
+  export PATHS_TO_SYNC="/foo"
+  run find_path_to_sync_parent "/foo"
+  assert_output '/foo'
+}
+
+@test "find_path_to_sync_parent should not find unmatched paths" {
+  export PATHS_TO_SYNC="/foo"
+  run find_path_to_sync_parent "/bar"
+  assert_output ''
+}
+
+@test "find_path_to_sync_parent should find nested matches" {
+  export PATHS_TO_SYNC="/foo"
+  run find_path_to_sync_parent "/foo/bar"
+  assert_output '/foo/bar'
+}
+
+@test "find_path_to_sync_parent should not confuse substring matches" {
+  export PATHS_TO_SYNC="/foo /bar"
+  run find_path_to_sync_parent "/bar/foo"
+  assert_output '/bar/foo'
+}
+
+@test "find_path_to_sync_parent should not find other paths which are substrings" {
+  export PATHS_TO_SYNC="/some/path /some/path2"
+  run find_path_to_sync_parent "/some/path2"
+  assert_output '/some/path2'
+}
+
+@test "find_path_to_sync_parent should not match nested paths against other paths which are substrings" {
+  export PATHS_TO_SYNC="/some/path /some/path2"
+  run find_path_to_sync_parent "/some/path2/foo"
+  assert_output '/some/path2/foo'
+}
