@@ -601,8 +601,8 @@ function find_path_to_sync_parent {
 
   local path_to_sync=""
   for path_to_sync in "${paths_to_sync[@]}"; do
-    if [[ "$normalized_path" == $path_to_sync* ]]; then
-      echo "$path_to_sync"
+    if [[ "$normalized_path" == $path_to_sync || "$normalized_path" == $path_to_sync\/* ]]; then
+      echo "$normalized_path"
       return
     fi
   done
