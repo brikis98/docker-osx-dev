@@ -319,13 +319,13 @@ export NEW_ENV_VARIABLE_2=VALUE2"
 @test "find_path_to_sync_parent should find nested matches" {
   export PATHS_TO_SYNC="/foo"
   run find_path_to_sync_parent "/foo/bar"
-  assert_output '/foo/bar'
+  assert_output '/foo'
 }
 
 @test "find_path_to_sync_parent should not confuse substring matches" {
   export PATHS_TO_SYNC="/foo /bar"
   run find_path_to_sync_parent "/bar/foo"
-  assert_output '/bar/foo'
+  assert_output '/bar'
 }
 
 @test "find_path_to_sync_parent should not find other paths which are substrings" {
@@ -337,5 +337,13 @@ export NEW_ENV_VARIABLE_2=VALUE2"
 @test "find_path_to_sync_parent should not match nested paths against other paths which are substrings" {
   export PATHS_TO_SYNC="/some/path /some/path2"
   run find_path_to_sync_parent "/some/path2/foo"
-  assert_output '/some/path2/foo'
+  assert_output '/some/path2'
 }
+
+@test "find_path_to_sync_parent should match paths starting with a dot" {
+  export PATHS_TO_SYNC="/some/path"
+  run find_path_to_sync_parent "/some/path/.git/foo"
+  assert_output '/some/path'
+}
+
+
