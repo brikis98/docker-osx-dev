@@ -310,8 +310,8 @@ function umount_vboxsf_mounted_folder {
   local readonly vbox_shared_folders="$1"
   local vbox_shared_folder=''
   while read -r vbox_shared_folder; do
-    log_info "Remove shared folder: $vbox_shared_folder"
     boot2docker ssh sudo umount /Users
+    log_info "Removing shared folder: $vbox_shared_folder"
   done <<< "$vbox_shared_folders"
 }
 
