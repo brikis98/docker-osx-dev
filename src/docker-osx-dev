@@ -291,35 +291,27 @@ function find_boot2docker_vm_name {
 }
 
 #
-# Usage: find_vbox_shared_folders VM_NAME
+# Usage: find_vboxsf_mounted_folders
 #
-# Returns the info for any VirtualBox shared folders for the VM named VM_NAME
+# Returns mounted volumes with vboxsf-type in boot2docker instance.
 #
-function find_vbox_shared_folders {
-  VBoxManage showvminfo --details --machinereadable "$vm_name" | grep SharedFolderName
+function find_vboxsf_mounted_folders {
+  boot2docker ssh mount | grep 'type vboxsf' | awk '{print $3}'
 }
 
 #
-# Usage: remove_shared_folders VM_NAME SHARED_FOLDERS
+# Usage: umount_vboxsf_mounted_folder SHARED_FOLDERS
 #
-# Remove the VirtualBox shared folders in SHARED_FOLDERS from the VirtualBox VM
-# named VM_NAME. SHARED_FOLDERS should be the output of the
-# find_vbox_shared_folders function.
+# Remove the VirtualBox shared folder from the boot2docker VM.
+# SHARED_FOLDERS should be the output of the
+# find_vboxsf_mounted_folders function.
 #
-function remove_shared_folders {
-  local readonly vm_name="$1"
-  local readonly vbox_shared_folders="$2"
-
-  if is_boot2docker_running ; then
-    log_info "Shutting down Boot2Docker to remove shared folders"
-    boot2docker stop
-  fi
-
-  local shared_folders_line=""
-  while read -r shared_folders_line; do
-    local readonly folder_name=$(echo "$shared_folders_line" | sed -e 's/SharedFolderNameMachineMapping.*="\(.*\)"/\1/')
-    log_info "Removing shared folder $folder_name"
-    VBoxManage sharedfolder remove "$vm_name" --name "$folder_name"
+function umount_vboxsf_mounted_folder {
+  local readonly vbox_shared_folders="$1"
+  local vbox_shared_folder=''
+  while read -r vbox_shared_folder; do
+    log_info "Remove shared folder: $vbox_shared_folder"
+    boot2docker ssh sudo umount /Users
   done <<< "$vbox_shared_folders"
 }
 
@@ -330,7 +322,7 @@ function remove_shared_folders {
 #
 function check_for_shared_folders {
   local readonly vm_name=$(find_boot2docker_vm_name)
-  local readonly vbox_shared_folders=$(find_vbox_shared_folders)
+  local readonly vbox_shared_folders=$(find_vboxsf_mounted_folders)
 
   if [[ ! -z "$vbox_shared_folders" ]]; then
     log_error "Found VirtualBox shared folders on your Boot2Docker VM. These may void any performance benefits from using docker-osx-dev:\n$vbox_shared_folders"
@@ -340,7 +332,7 @@ function check_for_shared_folders {
     select choice in "yes" "no"; do
       case $REPLY in
         y|Y|yes|Yes )
-          remove_shared_folders "$vm_name" "$vbox_shared_folders"
+          umount_vboxsf_mounted_folder "$vbox_shared_folders"
           break
           ;;
         n|N|no|No )
