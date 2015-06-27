@@ -554,7 +554,6 @@ function install_dependencies {
   brew update
 
   brew_install "caskroom/cask/brew-cask" "Cask" "" false
-  brew_install "virtualbox" "VirtualBox" true
   brew_install "boot2docker" "Boot2Docker" "boot2docker" false
   brew_install "docker-compose" "Docker Compose" "docker-compose" false
   brew_install "fswatch" "fswatch" "fswatch" false
