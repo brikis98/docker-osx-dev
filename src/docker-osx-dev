@@ -397,7 +397,7 @@ function install_rsync_on_boot2docker {
   # resolved, we are manually copying a pre-built version of the rsync binary to 
   # the ISO.
 
-  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then sudo wget -P $BIN_DIR $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync; fi"
+  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then sudo curl -o $BIN_DIR/rsync $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync; fi"
 }
 
 ################################################################################
