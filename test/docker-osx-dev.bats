@@ -167,29 +167,84 @@ load test_helper
   assert_equal "foo bar baz foo" "$EXCLUDES"
 }
 
-@test "load_ignore_paths skips non-existent files" {
-  run load_ignore_paths "not-a-real-file"
+@test "configure_includes with non-existent ignore file results in no includes" {
+  configure_includes "not-a-real-ignore-file" > /dev/null
+  assert_equal "" "$INCLUDES"
+}
+
+@test "configure_includes with empty ignore file results in no includes" {
+  configure_includes "test/resources/ignore-file-empty.txt" > /dev/null
+  assert_equal "" "$INCLUDES"
+}
+
+@test "configure_includes with ignore file with no includes results in no includes" {
+  configure_includes "test/resources/ignore-file-with-one-entry.txt" > /dev/null
+  assert_equal "" "$INCLUDES"
+}
+
+@test "configure_includes loads includes from ignore file" {
+  configure_includes "test/resources/ignore-file-with-includes.txt" > /dev/null
+  assert_equal "bar foo" "$INCLUDES"
+}
+
+@test "configure_includes uses single command line arg" {
+  configure_includes "not-a-real-ignore-file" "foo" > /dev/null
+  assert_equal "foo" "$INCLUDES"
+}
+
+@test "configure_includes uses multiple command line args" {
+  configure_includes "not-a-real-ignore-file" "foo" "bar" "baz" > /dev/null
+  assert_equal "foo bar baz" "$INCLUDES"
+}
+
+@test "configure_includes uses ignore file and multiple command line args" {
+  configure_includes "test/resources/ignore-file-with-includes.txt" "abc" "def" "ghi" > /dev/null
+  assert_equal "abc def ghi bar foo" "$INCLUDES"
+}
+
+@test "load_exclude_paths skips non-existent files" {
+  run load_exclude_paths "not-a-real-file"
   assert_output ""
 }
 
-@test "load_ignore_paths handles empty ignore files" {
-  run load_ignore_paths "test/resources/ignore-file-empty.txt"
+@test "load_exclude_paths handles empty ignore files" {
+  run load_exclude_paths "test/resources/ignore-file-empty.txt"
   assert_output ""
 }
 
-@test "load_ignore_paths handles ignore file with one entry" {
-  run load_ignore_paths "test/resources/ignore-file-with-one-entry.txt"
+@test "load_exclude_paths handles ignore file with one entry" {
+  run load_exclude_paths "test/resources/ignore-file-with-one-entry.txt"
   assert_output "foo"
 }
 
-@test "load_ignore_paths handles ignore file with multiple entries" {
-  run load_ignore_paths "test/resources/ignore-file-with-multiple-entries.txt"
+@test "load_exclude_paths handles ignore file with multiple entries" {
+  run load_exclude_paths "test/resources/ignore-file-with-multiple-entries.txt"
   assert_output "foo bar baz"
 }
 
-@test "load_ignore_paths handles ignore file with comments" {
-  run load_ignore_paths "test/resources/ignore-file-with-comments.txt"
+@test "load_exclude_paths handles ignore file with comments" {
+  run load_exclude_paths "test/resources/ignore-file-with-comments.txt"
   assert_output "foo bar baz"
+}
+
+@test "load_exclude_paths handles ignore file with includes" {
+  run load_exclude_paths "test/resources/ignore-file-with-includes.txt"
+  assert_output "foo bar baz"
+}
+
+@test "load_include_paths skips non-existent files" {
+  run load_include_paths "not-a-real-file"
+  assert_output ""
+}
+
+@test "load_include_paths handles empty ignore files" {
+  run load_include_paths "test/resources/ignore-file-empty.txt"
+  assert_output ""
+}
+
+@test "load_include_paths handles ignore file with includes" {
+  run load_include_paths "test/resources/ignore-file-with-includes.txt"
+  assert_output "bar foo"
 }
 
 @test "load_paths_from_docker_compose skips non-existent files" {
@@ -345,5 +400,3 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   run find_path_to_sync_parent "/some/path/.git/foo"
   assert_output '/some/path'
 }
-
-

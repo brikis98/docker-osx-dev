@@ -57,6 +57,7 @@ readonly RSYNC_BINARY_URL="https://raw.githubusercontent.com/brikis98/docker-osx
 # configure_XXX functions.
 PATHS_TO_SYNC=""
 EXCLUDES=""
+INCLUDES=""
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 BOOT2DOCKER_SSH_KEY=""
 
@@ -637,9 +638,14 @@ function do_rsync {
     local excludes=()
     read -a excludes <<< "$EXCLUDES"
     local readonly exclude_flags="${excludes[@]/#/--exclude }"
+
+    local includes=()
+    read -a includes <<< "$INCLUDES"
+    local readonly include_flags="${includes[@]/#/--include }"
+
     local readonly rsh_flag="--rsh=\"ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no\""
 
-    local readonly rsync_cmd="rsync $RSYNC_FLAGS $exclude_flags $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
+    local readonly rsync_cmd="rsync $RSYNC_FLAGS $include_flags $exclude_flags $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
     log_debug "$rsync_cmd"
 
     eval "$rsync_cmd" 2>&1 | log_info
@@ -791,21 +797,45 @@ function load_paths_from_docker_compose {
 }
 
 #
-# Usage: load_ignore_paths IGNORE_FILE
+# Usage: load_exclude_paths IGNORE_FILE
 #
 # Parse the paths from IGNORE_FILE that are of the format used by .gitignore and
 # .dockerignore: that is, each line contains a single path, and lines that
-# start with a pound sign are treated as comments.
+# start with a pound sign are treated as comments. Lines that start with a !
+# are includes and are also ignored.
 #
-function load_ignore_paths {
+function load_exclude_paths {
   local readonly ignore_file="$1"
   local paths=()
 
   if [[ -f "$ignore_file" ]]; then
     local line=""
     while read line; do
-      if [[ "${line:0:1}" != "#" ]]; then
+      if [[ "${line:0:1}" != "#" ]] && [[ "${line:0:1}" != "!" ]]; then
         paths+=("$line")
+      fi
+    done < "$ignore_file"
+  fi
+
+  echo "${paths[@]}"
+}
+
+#
+# Usage: load_include_paths IGNORE_FILE
+#
+# Parse the paths from IGNORE_FILE that are of the format used by .gitignore and
+# .dockerignore: that is, each line contains a single path, and only lines
+# starting with a ! are kept.
+#
+function load_include_paths {
+  local readonly ignore_file="$1"
+  local paths=()
+
+  if [[ -f "$ignore_file" ]]; then
+    local line=""
+    while read line; do
+      if [[ "${line:0:1}" == "!" ]]; then
+        paths+=("${line:1}")
       fi
     done < "$ignore_file"
   fi
@@ -860,7 +890,7 @@ function configure_paths_to_sync {
 # Sets the paths that should be excluded when syncing files to the Boot2Docker
 # VM. EXCLUDE_PATHS_FROM_CMD_LINE are paths specified as command line arguments
 # and will take precedence. If none are specified, this function will try to
-# read the ignore file (see load_ignore_paths) at IGNORE_FILE and use those
+# read the ignore file (see load_exclude_paths) at IGNORE_FILE and use those
 # entries as excludes. If that fails, this function will fall back to
 # DEFAULT_EXCLUDES.
 #
@@ -868,7 +898,7 @@ function configure_excludes {
   local readonly ignore_file="$1"
   shift
   local readonly excludes_from_cmd_line=("$@")
-  local readonly excludes_from_ignore_file=($(load_ignore_paths "$ignore_file"))
+  local readonly excludes_from_ignore_file=($(load_exclude_paths "$ignore_file"))
 
   local excludes=()
   if [[ "${#excludes_from_cmd_line}" -gt 0 ]]; then
@@ -888,6 +918,36 @@ function configure_excludes {
 
   EXCLUDES="${excludes[@]}"
   log_info "Complete list of paths to exclude: $EXCLUDES"
+}
+
+#
+# Usage: configure_includes IGNORE_FILE [INCLUDE_PATHS_FROM_CMD_LINE ...]
+#
+# Sets the paths that should be included when syncing files to the Boot2Docker
+# VM. INCLUDE_PATHS_FROM_CMD_LINE are paths specified as command line arguments
+# and will take precedence. If none are specified, this function will try to
+# read the ignore file (see load_include_paths) at IGNORE_FILE and use those
+# entries as includes.
+#
+function configure_includes {
+  local readonly ignore_file="$1"
+  shift
+  local readonly includes_from_cmd_line=("$@")
+  local readonly includes_from_ignore_file=($(load_include_paths "$ignore_file"))
+
+  local includes=()
+  if [[ "${#includes_from_cmd_line}" -gt 0 ]]; then
+    log_info "Using include paths from command line args: ${includes_from_cmd_line[@]}"
+    includes+=("${includes_from_cmd_line[@]}")
+  fi
+
+  if [[ "${#includes_from_ignore_file}" -gt 0 ]]; then
+    log_info "Using includes from ignore file $ignore_file: ${includes_from_ignore_file[@]}"
+    includes+=("${includes_from_ignore_file[@]}")
+  fi
+
+  INCLUDES="${includes[@]}"
+  log_info "Complete list of paths to include: $INCLUDES"
 }
 
 #
@@ -966,6 +1026,7 @@ function handle_command {
   local ignore_file="$DEFAULT_IGNORE_FILE"
   local paths_to_sync=()
   local excludes=()
+  local includes=()
 
   while [[ $# > 0 ]]; do
     key="$1"
@@ -988,6 +1049,11 @@ function handle_command {
       -e|--exclude-path)
         assert_valid_arg "$2" "$key"
         excludes+=("$2")
+        shift
+        ;;
+      -I|--include-path)
+        assert_valid_arg "$2" "$key"
+        includes+=("$2")
         shift
         ;;
       -c|--compose-file)
@@ -1024,6 +1090,7 @@ function handle_command {
       configure_log_level "$log_level"
       configure_paths_to_sync "$docker_compose_file" "${paths_to_sync[@]}"
       configure_excludes "$ignore_file" "${excludes[@]}"
+      configure_includes "$ignore_file" "${includes[@]}"
       watch_and_sync
       ;;
     "$INSTALL_COMMAND")

@@ -1,0 +1,8 @@
+# Should be ignored
+foo
+bar
+# Should also be ignored
+baz
+!bar
+# Should also be included
+!foo
