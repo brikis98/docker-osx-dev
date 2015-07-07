@@ -385,16 +385,16 @@ function init_boot2docker {
 #
 function install_rsync_on_boot2docker {
   log_info "Installing rsync in the Boot2Docker image"
-  
+
   # Temporary workaround for https://github.com/brikis98/docker-osx-dev/issues/52
-  # 
+  #
   # Installing rsync used to be easy:
   #
   # boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
   #
   # Unfortunately, as of version 1.7.0, Docker is using a 64 bit ISO, and
   # tce-load will not be able to find a 64 bit version of rsync. Until that is
-  # resolved, we are manually copying a pre-built version of the rsync binary to 
+  # resolved, we are manually copying a pre-built version of the rsync binary to
   # the ISO.
 
   boot2docker ssh "if ! type rsync > /dev/null 2>&1; then sudo curl -o $BIN_DIR/rsync $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync; fi"
