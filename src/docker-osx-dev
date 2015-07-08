@@ -780,7 +780,7 @@ function load_paths_from_docker_compose {
     while read line; do
       if $in_volumes_block; then
         if [[ "${line:0:2}" = "- " ]]; then
-          local readonly path=$(echo $line | sed -ne "s/- \(.*\):.*$/\1/p")
+          local readonly path=$(echo $line | sed -ne "s/- \([^:]*\):.*$/\1/p")
           if [ ! -z "$path" ]; then
             paths+=("$path")
           fi
