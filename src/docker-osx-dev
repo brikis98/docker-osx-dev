@@ -37,7 +37,7 @@ readonly DEFAULT_COMMAND="$SYNC_COMMAND"
 readonly BIN_DIR="/usr/local/bin"
 
 # Boot2Docker constants
-readonly DOCKER_HOST_NAME="dockerhost"
+test -n "$DOCKER_HOST_NAME" || readonly DOCKER_HOST_NAME="dockerhost"
 readonly BOOT2DOCKER_USER="docker"
 readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 
