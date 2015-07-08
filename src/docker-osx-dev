@@ -681,7 +681,9 @@ function initial_sync {
 
   for path in "${paths_to_sync[@]}"; do
     local readonly parent_dir=$(dirname "$path")
-    dirs_to_create+=("$parent_dir")
+    if [[ "$parent_dir" != "/" ]]; then
+      dirs_to_create+=("$parent_dir")
+    fi
   done
 
   local readonly dir_string=$(join " " "${dirs_to_create[@]}")
