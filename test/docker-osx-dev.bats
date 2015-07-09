@@ -137,6 +137,11 @@ load test_helper
   assert_equal "$HOME/foo" "$PATHS_TO_SYNC"
 }
 
+@test "configure_paths_to_sync correctly reads paths with access modifier" {
+  configure_paths_to_sync "test/resources/docker-compose-one-volume-access-modifier.yml" > /dev/null
+  assert_equal "/host" "$PATHS_TO_SYNC"
+}
+
 @test "configure_excludes with non-existent ignore file results in default excludes" {
   configure_excludes "not-a-real-ignore-file" > /dev/null
   assert_equal "$DEFAULT_EXCLUDES" "$EXCLUDES"
