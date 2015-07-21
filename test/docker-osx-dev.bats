@@ -117,6 +117,16 @@ load test_helper
   assert_equal "/host" "$PATHS_TO_SYNC"
 }
 
+@test "configure_paths_to_sync reads paths to sync from docker-compose file that uses double quotes around value" {
+  configure_paths_to_sync "test/resources/docker-compose-one-volume-double-quotes.yml" > /dev/null
+  assert_equal "/host" "$PATHS_TO_SYNC"
+}
+
+@test "configure_paths_to_sync reads paths to sync from docker-compose file that uses single quotes around value" {
+  configure_paths_to_sync "test/resources/docker-compose-one-volume-single-quotes.yml" > /dev/null
+  assert_equal "/host" "$PATHS_TO_SYNC"
+}
+
 @test "configure_paths_to_sync with one path from command line" {
   configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo" > /dev/null
   assert_equal "/foo" "$PATHS_TO_SYNC"
