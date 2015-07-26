@@ -37,8 +37,8 @@ readonly DEFAULT_COMMAND="$SYNC_COMMAND"
 
 # Boot2Docker constants
 test -n "$DOCKER_HOST_NAME" || readonly DOCKER_HOST_NAME="dockerhost"
+
 readonly BOOT2DOCKER_USER="docker"
-readonly BOOT2DOCKER_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 
 # docker-compose constants
 readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
@@ -55,7 +55,10 @@ PATHS_TO_SYNC=""
 EXCLUDES=""
 INCLUDES=""
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
-BOOT2DOCKER_SSH_KEY=""
+DOCKER_HOST_USER=""
+DOCKER_HOST_SSHPORT="22"
+DOCKER_HOST_SSH_URL=""
+DOCKER_HOST_SSH_KEY=""
 
 
 ################################################################################
@@ -279,8 +282,10 @@ function configure_log_level {
 #
 # Configures the Boot2Docker SSH key by looking into the Boot2Docker config
 #
-function configure_boot2docker_ssh_key {
-  BOOT2DOCKER_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
+function configure_boot2docker_vars {
+  DOCKER_HOST_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
+  DOCKER_HOST_USER="$BOOT2DOCKER_USER"
+  DOCKER_HOST_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
 }
 
 #
@@ -375,16 +380,67 @@ function init_boot2docker {
     log_info "Starting Boot2Docker VM"
     boot2docker start --vbox-share=disable
   fi
+
+  configure_boot2docker_vars
+}
+
+################################################################################
+# docker-machine manipulation
+################################################################################
+
+function get_json_val () { 
+    python -c "import json,sys;sys.stdout.write(json.dumps(json.load(sys.stdin)$1))" | sed -e 's/^"//'  -e 's/"$//'
+}
+
+#
+# Configures variables based on a the docker-machine inspect from $DOCKER_MACHINE_NAME
+#
+function configure_docker_machine {
+  DOCKER_MACHINE_INSPECT=$(docker-machine inspect $DOCKER_MACHINE_NAME)
+  DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['Driver']['SSHUser']")
+  DOCKER_HOST_SSHPORT=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['Driver']['SSHPort']")
+  DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['Driver']['IPAddress']")
+  DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['StorePath']")
+
+  DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
+  DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
+}
+
+#
+# Initializes and starts up the docker-machine VM.
+#
+function init_docker_machine {
+  log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
+  docker-machine start "$DOCKER_MACHINE_NAME"
+  eval $(docker-machine env "$DOCKER_MACHINE_NAME")
+  configure_docker_machine
+}
+
+################################################################################
+# Generic docker host manipulation
+################################################################################
+
+#
+# Initializes a docker host
+# Initializes boot2docker, unless DOCKER_MACHINE_NAME is defined
+#
+function init_docker_host {
+  if [ -n "$DOCKER_MACHINE_NAME" ]; then
+    init_docker_machine
+  else
+    init_boot2docker
+  fi
 }
 
 #
 # Installs rsync on the Boot2Docker VM, unless it's already installed.
 #
-function install_rsync_on_boot2docker {
-  log_info "Installing rsync in the Boot2Docker image"
+function install_rsync_on_docker_host {
+  log_info "Installing rsync in the Docker Host image"
 
-  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
+  docker_host_ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
 }
+
 
 ################################################################################
 # Environment setup
@@ -558,6 +614,7 @@ function install_dependencies {
   brew_install "caskroom/cask/brew-cask" "Cask" "" false
   brew_install "boot2docker" "Boot2Docker" "boot2docker" false
   brew_install "docker-compose" "Docker Compose" "docker-compose" false
+  brew_install "docker-machine" "Docker Machine" "docker-machine" false
   brew_install "fswatch" "fswatch" "fswatch" false
   brew_install "coreutils" "GNU core utilities" "greadlink" false
 }
@@ -628,9 +685,9 @@ function do_rsync {
     read -a includes <<< "$INCLUDES"
     local readonly include_flags="${includes[@]/#/--include }"
 
-    local readonly rsh_flag="--rsh=\"ssh -i $BOOT2DOCKER_SSH_KEY -o StrictHostKeyChecking=no\""
+    local readonly rsh_flag="--rsh=\"ssh -i $DOCKER_HOST_SSH_KEY -o StrictHostKeyChecking=no\" -p $DOCKER_HOST_SSHPORT"
 
-    local readonly rsync_cmd="rsync $RSYNC_FLAGS $include_flags $exclude_flags $rsh_flag $path_to_sync $BOOT2DOCKER_SSH_URL:$parent_folder"
+    local readonly rsync_cmd="rsync $RSYNC_FLAGS $include_flags $exclude_flags $rsh_flag $path_to_sync $DOCKER_HOST_SSH_URL:$parent_folder"
     log_debug "$rsync_cmd"
 
     eval "$rsync_cmd" 2>&1 | log_info
@@ -657,6 +714,11 @@ function sync {
   done
 }
 
+function docker_host_ssh {
+  docker-machine ssh "$DOCKER_MACHINE_NAME" "$@"
+  # TODO: or boot2docker ssh
+}
+
 #
 # Usage: initial_sync PATHS
 #
@@ -679,11 +741,11 @@ function initial_sync {
 
   local readonly dir_string=$(join " " "${dirs_to_create[@]}")
   local readonly mkdir_string="sudo mkdir -p $dir_string"
-  local readonly chown_string="sudo chown -R $BOOT2DOCKER_USER $dir_string"
+  local readonly chown_string="sudo chown -R $DOCKER_HOST_USER $dir_string"
   local readonly ssh_cmd="$mkdir_string && $chown_string"
 
   log_debug "Creating parent directories in Docker VM: $ssh_cmd"
-  boot2docker ssh "$ssh_cmd"
+  docker_host_ssh "$ssh_cmd"
 
   sync "${paths_to_sync[@]}"
   log_info "Initial sync done"
@@ -724,6 +786,7 @@ function instructions {
   echo -e "Commands:"
   echo -e "  $SYNC_COMMAND\t\tStart file syncing. This is the default if no COMMAND is specified."
   echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
+  echo -e "  DOCKER_MACHINE_NAME=foo $SYNC_COMMAND\t\tStart file syncing, but for a docker machine host."
   echo -e
   echo -e "Options:"
   echo -e "  -s, --sync-path PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
@@ -735,7 +798,7 @@ function instructions {
   echo -e
   echo -e "Overview:"
   echo -e
-  echo -e "docker-osx-dev is a script you can use to sync folders to the Boot2Docker VM using rsync."
+  echo -e "docker-osx-dev is a script you can use to sync folders to the Boot2Docker (or docker-machine) VM using rsync."
   echo -e "It's an alternative to using VirtualBox shared folders, which are agonizingly slow and break file watchers."
   echo -e "For more info, see: https://github.com/brikis98/docker-osx-dev"
   echo -e
@@ -942,9 +1005,8 @@ function configure_includes {
 #
 function watch_and_sync {
   log_info "Starting docker-osx-dev file syncing"
-  configure_boot2docker_ssh_key
-  init_boot2docker
-  install_rsync_on_boot2docker
+  init_docker_host
+  install_rsync_on_docker_host
   initial_sync
   watch
 }
@@ -956,8 +1018,8 @@ function watch_and_sync {
 function install {
   log_info "Starting install of docker-osx-dev"
   install_dependencies
-  init_boot2docker
-  install_rsync_on_boot2docker
+  init_docker_host
+  install_rsync_on_docker_host
   add_docker_host
   add_environment_variables
   print_next_steps
