@@ -31,6 +31,7 @@ readonly ENV_FILE_COMMENT="\n# docker-osx-dev\n"
 # Script constants
 readonly HOSTS_FILE="/etc/hosts"
 readonly SYNC_COMMAND="sync"
+readonly SYNC_ONLY_COMMAND="sync_only"
 readonly INSTALL_COMMAND="install"
 readonly TEST_COMMAND="test_mode"
 readonly DEFAULT_COMMAND="$SYNC_COMMAND"
@@ -60,7 +61,7 @@ EXCLUDES=""
 INCLUDES=""
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 BOOT2DOCKER_SSH_KEY=""
-
+SCRIPT=`realpath -s $0`
 
 ################################################################################
 # Utility functions
@@ -738,6 +739,7 @@ function instructions {
   echo -e
   echo -e "Commands:"
   echo -e "  $SYNC_COMMAND\t\tStart file syncing. This is the default if no COMMAND is specified."
+  echo -e "  $SYNC_ONLY_COMMAND\tInitial files syncing and exit."
   echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
   echo -e
   echo -e "Options:"
@@ -956,12 +958,19 @@ function configure_includes {
 # Runs the docker-osx-dev script to kick off file watching and syncing.
 #
 function watch_and_sync {
+  sync_only
+  watch
+}
+
+#
+# Runs the docker-osx-dev script to syncing one time.
+#
+function sync_only {
   log_info "Starting docker-osx-dev file syncing"
   configure_boot2docker_ssh_key
   init_boot2docker
   install_rsync_on_boot2docker
   initial_sync
-  watch
 }
 
 #
@@ -970,6 +979,8 @@ function watch_and_sync {
 #
 function install {
   log_info "Starting install of docker-osx-dev"
+  cp $SCRIPT /usr/local/bin/docker-osx-dev
+  chmod +x /usr/local/bin/docker-osx-dev
   install_dependencies
   init_boot2docker
   install_rsync_on_boot2docker
@@ -1037,6 +1048,9 @@ function handle_command {
       "$SYNC_COMMAND")
         cmd="$SYNC_COMMAND"
         ;;
+      "$SYNC_ONLY_COMMAND")
+        cmd="$SYNC_ONLY_COMMAND"
+        ;;
       "$INSTALL_COMMAND")
         cmd="$INSTALL_COMMAND"
         ;;
@@ -1094,6 +1108,13 @@ function handle_command {
       configure_excludes "$ignore_file" "${excludes[@]}"
       configure_includes "$ignore_file" "${includes[@]}"
       watch_and_sync
+      ;;
+    "$SYNC_ONLY_COMMAND")
+      configure_log_level "$log_level"
+      configure_paths_to_sync "$docker_compose_file" "${paths_to_sync[@]}"
+      configure_excludes "$ignore_file" "${excludes[@]}"
+      configure_includes "$ignore_file" "${includes[@]}"
+      sync_only
       ;;
     "$INSTALL_COMMAND")
       configure_log_level "$log_level"
