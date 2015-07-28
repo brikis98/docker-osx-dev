@@ -35,8 +35,8 @@ readonly INSTALL_COMMAND="install"
 readonly TEST_COMMAND="test_mode"
 readonly DEFAULT_COMMAND="$SYNC_COMMAND"
 
-# Boot2Docker constants
-test -n "$DOCKER_HOST_NAME" || readonly DOCKER_HOST_NAME="dockerhost"
+# docker host constants
+test -n "$DOCKER_HOST_NAME" || readonly DOCKER_HOST_NAME=${DOCKER_MACHINE_NAME-"dockerhost"}
 
 readonly BOOT2DOCKER_USER="docker"
 
@@ -483,7 +483,7 @@ function get_env_file {
 #
 # Adds environment variables necessary for running Boot2Docker
 #
-function add_environment_variables {
+function add_boot2docker_environment_variables {
   local readonly env_file=$(get_env_file)
   local readonly boot2docker_exports=$(boot2docker shellinit 2>/dev/null)
   local readonly exports_to_add_to_env_file=$(determine_boot2docker_exports_for_env_file "$boot2docker_exports")
@@ -538,8 +538,8 @@ function add_docker_host {
   if grep -q "^[^#]*$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
     log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not overwrite"
   else
-    local readonly boot2docker_ip=$(boot2docker ip)
-    local readonly host_entry="\n$boot2docker_ip $DOCKER_HOST_NAME"
+    DOCKER_HOST_IP=${DOCKER_HOST_IP-$(boot2docker ip)}
+    local readonly host_entry="\n$DOCKER_HOST_IP $DOCKER_HOST_NAME"
 
     log_info "Adding $DOCKER_HOST_NAME entry to $HOSTS_FILE so you can use http://$DOCKER_HOST_NAME URLs for testing"
     log_instructions "Modifying $HOSTS_FILE requires sudo privileges, please enter your password."
@@ -685,7 +685,7 @@ function do_rsync {
     read -a includes <<< "$INCLUDES"
     local readonly include_flags="${includes[@]/#/--include }"
 
-    local readonly rsh_flag="--rsh=\"ssh -i $DOCKER_HOST_SSH_KEY -o StrictHostKeyChecking=no\" -p $DOCKER_HOST_SSHPORT"
+    local readonly rsh_flag="--rsh=\"ssh -i $DOCKER_HOST_SSH_KEY -o StrictHostKeyChecking=no -p $DOCKER_HOST_SSHPORT\""
 
     local readonly rsync_cmd="rsync $RSYNC_FLAGS $include_flags $exclude_flags $rsh_flag $path_to_sync $DOCKER_HOST_SSH_URL:$parent_folder"
     log_debug "$rsync_cmd"
@@ -1006,7 +1006,6 @@ function configure_includes {
 function watch_and_sync {
   log_info "Starting docker-osx-dev file syncing"
   init_docker_host
-  install_rsync_on_docker_host
   initial_sync
   watch
 }
@@ -1021,7 +1020,7 @@ function install {
   init_docker_host
   install_rsync_on_docker_host
   add_docker_host
-  add_environment_variables
+  [ -z "$DOCKER_MACHINE_NAME" ] && add_boot2docker_environment_variables
   print_next_steps
 }
 

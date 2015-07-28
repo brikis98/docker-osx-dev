@@ -144,6 +144,21 @@ http://dockerhost:5000
 When you install docker-osx-dev, it adds an entry to your `/etc/hosts` file so
 that `http://dockerhost` works as a URL for testing your Docker containers.
 
+# docker-machine support
+
+docker-machine support is experimental. You can use it as they way it is used for
+Boot2Docker, but provide `DOCKER_MACHINE_NAME=<machine-name>` at the begging of
+the `docker-osx-dev`. So as an example, run as:
+
+```
+> cd /foo/bar
+> DOCKER_MACHINE_NAME=foo docker-osx-dev
+[INFO] Performing initial sync of paths: /foo/bar
+[INFO] Watching: /foo/bar
+```
+
+Note: currently this assumes the docker-machine was already created.
+
 # How it works
 
 The `install command` installs all the software you need:
