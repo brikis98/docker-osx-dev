@@ -36,7 +36,6 @@ readonly TEST_COMMAND="test_mode"
 readonly DEFAULT_COMMAND="$SYNC_COMMAND"
 
 # docker host constants
-test -n "$DOCKER_HOST_NAME" || readonly DOCKER_HOST_NAME=${DOCKER_MACHINE_NAME-"dockerhost"}
 
 readonly BOOT2DOCKER_USER="docker"
 
@@ -59,6 +58,7 @@ DOCKER_HOST_USER=""
 DOCKER_HOST_SSHPORT="22"
 DOCKER_HOST_SSH_URL=""
 DOCKER_HOST_SSH_KEY=""
+DOCKER_HOST_SSH_COMMAND=""
 
 
 ################################################################################
@@ -283,9 +283,11 @@ function configure_log_level {
 # Configures the Boot2Docker SSH key by looking into the Boot2Docker config
 #
 function configure_boot2docker_vars {
+  test -n "$DOCKER_HOST_NAME" || DOCKER_HOST_NAME="dockerhost"
   DOCKER_HOST_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
   DOCKER_HOST_USER="$BOOT2DOCKER_USER"
   DOCKER_HOST_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
+  DOCKER_HOST_SSH_COMMAND="boot2docker ssh"
 }
 
 #
@@ -388,7 +390,10 @@ function init_boot2docker {
 # docker-machine manipulation
 ################################################################################
 
-function get_json_val () { 
+#
+# Read a json string from stdin and return the value of the key provided as first argument
+#
+function get_json_value () { 
     python -c "import json,sys;sys.stdout.write(json.dumps(json.load(sys.stdin)$1))" | sed -e 's/^"//'  -e 's/"$//'
 }
 
@@ -396,14 +401,16 @@ function get_json_val () {
 # Configures variables based on a the docker-machine inspect from $DOCKER_MACHINE_NAME
 #
 function configure_docker_machine {
+  DOCKER_HOST_NAME=$DOCKER_MACHINE_NAME
   DOCKER_MACHINE_INSPECT=$(docker-machine inspect $DOCKER_MACHINE_NAME)
-  DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['Driver']['SSHUser']")
-  DOCKER_HOST_SSHPORT=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['Driver']['SSHPort']")
-  DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['Driver']['IPAddress']")
-  DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_val "['StorePath']")
+  DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['SSHUser']")
+  DOCKER_HOST_SSHPORT=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['SSHPort']")
+  DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['IPAddress']")
+  DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['StorePath']")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
+  DOCKER_HOST_SSH_COMMAND="docker-machine ssh $DOCKER_MACHINE_NAME"
 }
 
 #
@@ -438,7 +445,7 @@ function init_docker_host {
 function install_rsync_on_docker_host {
   log_info "Installing rsync in the Docker Host image"
 
-  docker_host_ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
+  $DOCKER_HOST_SSH_COMMAND "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
 }
 
 
@@ -483,17 +490,19 @@ function get_env_file {
 #
 # Adds environment variables necessary for running Boot2Docker
 #
-function add_boot2docker_environment_variables {
-  local readonly env_file=$(get_env_file)
-  local readonly boot2docker_exports=$(boot2docker shellinit 2>/dev/null)
-  local readonly exports_to_add_to_env_file=$(determine_boot2docker_exports_for_env_file "$boot2docker_exports")
+function add_environment_variables {
+  if [ -z "$DOCKER_MACHINE_NAME" ]; then
+    local readonly env_file=$(get_env_file)
+    local readonly boot2docker_exports=$(boot2docker shellinit 2>/dev/null)
+    local readonly exports_to_add_to_env_file=$(determine_boot2docker_exports_for_env_file "$boot2docker_exports")
 
-  if [[ ! -z "$exports_to_add_to_env_file" ]]; then
-    log_info "Adding new environment variables to $env_file: $exports_to_add_to_env_file"
-    echo -e "$exports_to_add_to_env_file" >> "$env_file"
-    log_instructions "To pick up important new environment variables in the current shell, run:\n\tsource $env_file"
-  else
-    log_warn "All Boot2Docker environment variables already defined, will not overwrite"
+    if [[ ! -z "$exports_to_add_to_env_file" ]]; then
+      log_info "Adding new environment variables to $env_file: $exports_to_add_to_env_file"
+      echo -e "$exports_to_add_to_env_file" >> "$env_file"
+      log_instructions "To pick up important new environment variables in the current shell, run:\n\tsource $env_file"
+    else
+      log_warn "All Boot2Docker environment variables already defined, will not overwrite"
+    fi
   fi
 }
 
@@ -715,7 +724,7 @@ function sync {
 }
 
 function docker_host_ssh {
-  docker-machine ssh "$DOCKER_MACHINE_NAME" "$@"
+  $SSH_CO
   # TODO: or boot2docker ssh
 }
 
@@ -745,7 +754,7 @@ function initial_sync {
   local readonly ssh_cmd="$mkdir_string && $chown_string"
 
   log_debug "Creating parent directories in Docker VM: $ssh_cmd"
-  docker_host_ssh "$ssh_cmd"
+  $DOCKER_HOST_SSH_COMMAND "$ssh_cmd"
 
   sync "${paths_to_sync[@]}"
   log_info "Initial sync done"
@@ -786,9 +795,9 @@ function instructions {
   echo -e "Commands:"
   echo -e "  $SYNC_COMMAND\t\tStart file syncing. This is the default if no COMMAND is specified."
   echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
-  echo -e "  DOCKER_MACHINE_NAME=foo $SYNC_COMMAND\t\tStart file syncing, but for a docker machine host."
   echo -e
   echo -e "Options:"
+  echo -e "  -n, --machine-name name\t\tWhen suplied syncs with the given docker machine host"
   echo -e "  -s, --sync-path PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
   echo -e "  -e, --exclude-path PATH\t\tExclude PATH while syncing. Behaves identically to rsync's --exclude parameter. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
   echo -e "  -c, --compose-file COMPOSE_FILE\tRead in this docker-compose file and sync any volumes specified in it. Default: $DEFAULT_COMPOSE_FILE"
@@ -1020,7 +1029,7 @@ function install {
   init_docker_host
   install_rsync_on_docker_host
   add_docker_host
-  [ -z "$DOCKER_MACHINE_NAME" ] && add_boot2docker_environment_variables
+  add_environment_variables
   print_next_steps
 }
 
@@ -1117,6 +1126,11 @@ function handle_command {
       -l|--log-level)
         assert_valid_arg "$2" "$key"
         log_level="$2"
+        shift
+        ;;
+      -n|--machine-name)
+        assert_valid_arg "$2" "$key"
+        DOCKER_MACHINE_NAME="$2"
         shift
         ;;
       -h|--help)

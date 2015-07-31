@@ -146,13 +146,13 @@ that `http://dockerhost` works as a URL for testing your Docker containers.
 
 # docker-machine support
 
-docker-machine support is experimental. You can use it as they way it is used for
-Boot2Docker, but provide `DOCKER_MACHINE_NAME=<machine-name>` at the begging of
-the `docker-osx-dev`. So as an example, run as:
+docker-machine support is experimental. You can use it as the way it is used for
+Boot2Docker, but provide `--machine-name <machine-name>` as argument for 
+`docker-osx-dev`. So as an example, run as:
 
 ```
 > cd /foo/bar
-> DOCKER_MACHINE_NAME=foo docker-osx-dev
+> docker-osx-dev --machine-name <machine-name>
 [INFO] Performing initial sync of paths: /foo/bar
 [INFO] Watching: /foo/bar
 ```
