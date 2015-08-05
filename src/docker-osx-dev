@@ -55,7 +55,6 @@ EXCLUDES=""
 INCLUDES=""
 CURRENT_LOG_LEVEL="$DEFAULT_LOG_LEVEL"
 DOCKER_HOST_USER=""
-DOCKER_HOST_SSHPORT="22"
 DOCKER_HOST_SSH_URL=""
 DOCKER_HOST_SSH_KEY=""
 DOCKER_HOST_SSH_COMMAND=""
@@ -282,7 +281,7 @@ function configure_log_level {
 #
 # Configures the Boot2Docker SSH key by looking into the Boot2Docker config
 #
-function configure_boot2docker_vars {
+function configure_boot2docker {
   test -n "$DOCKER_HOST_NAME" || DOCKER_HOST_NAME="dockerhost"
   DOCKER_HOST_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
   DOCKER_HOST_USER="$BOOT2DOCKER_USER"
@@ -383,7 +382,7 @@ function init_boot2docker {
     boot2docker start --vbox-share=disable
   fi
 
-  configure_boot2docker_vars
+  configure_boot2docker
 }
 
 ################################################################################
@@ -404,13 +403,13 @@ function configure_docker_machine {
   DOCKER_HOST_NAME=$DOCKER_MACHINE_NAME
   DOCKER_MACHINE_INSPECT=$(docker-machine inspect $DOCKER_MACHINE_NAME)
   DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['SSHUser']")
-  DOCKER_HOST_SSHPORT=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['SSHPort']")
   DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['IPAddress']")
   DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['StorePath']")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
   DOCKER_HOST_SSH_COMMAND="docker-machine ssh $DOCKER_MACHINE_NAME"
+  log_debug "Running for the docker-machine name: $DOCKER_MACHINE_NAME"
 }
 
 #
@@ -694,7 +693,7 @@ function do_rsync {
     read -a includes <<< "$INCLUDES"
     local readonly include_flags="${includes[@]/#/--include }"
 
-    local readonly rsh_flag="--rsh=\"ssh -i $DOCKER_HOST_SSH_KEY -o StrictHostKeyChecking=no -p $DOCKER_HOST_SSHPORT\""
+    local readonly rsh_flag="--rsh=\"ssh -i $DOCKER_HOST_SSH_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null\""
 
     local readonly rsync_cmd="rsync $RSYNC_FLAGS $include_flags $exclude_flags $rsh_flag $path_to_sync $DOCKER_HOST_SSH_URL:$parent_folder"
     log_debug "$rsync_cmd"

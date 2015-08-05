@@ -450,7 +450,6 @@ EOF
 
   assert_equal "some-machine" "$DOCKER_HOST_NAME"
   assert_equal "user" "$DOCKER_HOST_USER"
-  assert_equal "22" "$DOCKER_HOST_SSHPORT"
   assert_equal "10.254.1.14" "$DOCKER_HOST_IP"
 
   assert_equal "/Users/someone/.docker/machine/machines/some-machine/id_rsa" "$DOCKER_HOST_SSH_KEY"
