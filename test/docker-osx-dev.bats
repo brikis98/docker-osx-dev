@@ -436,7 +436,6 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   {
       "Driver": {
           "SSHUser": "user",
-          "SSHPort": 22,
           "IPAddress": "10.254.1.14"
       },
       "StorePath": "/Users/someone/.docker/machine/machines/some-machine"

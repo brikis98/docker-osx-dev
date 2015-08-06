@@ -391,9 +391,10 @@ function init_boot2docker {
 
 #
 # Read a json string from stdin and return the value of the key provided as first argument
+# Uses head -n 1 to avoid duplicates
 #
-function get_json_value () { 
-    python -c "import json,sys;sys.stdout.write(json.dumps(json.load(sys.stdin)$1))" | sed -e 's/^"//'  -e 's/"$//'
+function get_json_value () {
+    sed -n 's/.*"'"$*"'": *"\([^"]*\)".*/\1/p' | head -n 1
 }
 
 #
@@ -402,9 +403,9 @@ function get_json_value () {
 function configure_docker_machine {
   DOCKER_HOST_NAME=$DOCKER_MACHINE_NAME
   DOCKER_MACHINE_INSPECT=$(docker-machine inspect $DOCKER_MACHINE_NAME)
-  DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['SSHUser']")
-  DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['Driver']['IPAddress']")
-  DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "['StorePath']")
+  DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "SSHUser")
+  DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "IPAddress")
+  DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "StorePath")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
