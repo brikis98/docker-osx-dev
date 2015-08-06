@@ -34,7 +34,6 @@ readonly SYNC_COMMAND="sync"
 readonly INSTALL_COMMAND="install"
 readonly TEST_COMMAND="test_mode"
 readonly DEFAULT_COMMAND="$SYNC_COMMAND"
-readonly BIN_DIR="/usr/local/bin"
 
 # Boot2Docker constants
 test -n "$DOCKER_HOST_NAME" || readonly DOCKER_HOST_NAME="dockerhost"
@@ -49,9 +48,6 @@ readonly DEFAULT_PATHS_TO_SYNC="."
 readonly DEFAULT_EXCLUDES=".git"
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
 readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file"
-
-# docker-osx-dev repo constants
-readonly RSYNC_BINARY_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/lib/rsync"
 
 # Global variables. The should only ever be set by the corresponding
 # configure_XXX functions.
@@ -387,18 +383,7 @@ function init_boot2docker {
 function install_rsync_on_boot2docker {
   log_info "Installing rsync in the Boot2Docker image"
 
-  # Temporary workaround for https://github.com/brikis98/docker-osx-dev/issues/52
-  #
-  # Installing rsync used to be easy:
-  #
-  # boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
-  #
-  # Unfortunately, as of version 1.7.0, Docker is using a 64 bit ISO, and
-  # tce-load will not be able to find a 64 bit version of rsync. Until that is
-  # resolved, we are manually copying a pre-built version of the rsync binary to
-  # the ISO.
-
-  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then sudo curl -o $BIN_DIR/rsync $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync; fi"
+  boot2docker ssh "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi"
 }
 
 ################################################################################
