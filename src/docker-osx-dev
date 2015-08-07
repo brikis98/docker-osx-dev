@@ -390,8 +390,8 @@ function init_boot2docker {
 ################################################################################
 
 #
-# Read a json string from stdin and return the value of the key provided as first argument
-# Uses head -n 1 to avoid duplicates
+# Read a json string from stdin and a key as argument, does a single string match and
+# returns the first string value that matches the given key
 # Examples:
 # $ echo -e '{ "foo": "bar" }' | get_json_value "foo"
 # bar
@@ -424,7 +424,7 @@ function configure_docker_machine {
 function init_docker_machine {
   log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
   docker-machine start "$DOCKER_MACHINE_NAME"
-  eval $(docker-machine env "$DOCKER_MACHINE_NAME")
+  eval "$(docker-machine env $DOCKER_MACHINE_NAME)"
   configure_docker_machine
 }
 
