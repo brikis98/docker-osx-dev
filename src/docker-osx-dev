@@ -303,7 +303,7 @@ function find_boot2docker_vm_name {
 # Returns mounted volumes with vboxsf-type in boot2docker instance.
 #
 function find_vboxsf_mounted_folders {
-  boot2docker ssh mount | grep 'type vboxsf' | awk '{print $3}'
+  $DOCKER_HOST_SSH_COMMAND mount | grep 'type vboxsf' | awk '{print $3}'
 }
 
 #
@@ -318,7 +318,7 @@ function umount_vboxsf_mounted_folder {
   local vbox_shared_folder=''
   while read -r vbox_shared_folder; do
     log_info "Removing shared folder: $vbox_shared_folder"
-    boot2docker ssh sudo umount "$vbox_shared_folder"
+    $DOCKER_HOST_SSH_COMMAND sudo umount "$vbox_shared_folder"
   done <<< "$vbox_shared_folders"
 }
 
@@ -392,17 +392,22 @@ function init_boot2docker {
 #
 # Read a json string from stdin and return the value of the key provided as first argument
 # Uses head -n 1 to avoid duplicates
+# Examples:
+# $ echo -e '{ "foo": "bar" }' | get_json_value "foo"
+# bar
+# $ echo -e '{ "foo": { "baz": "bar" } }' | get_json_value "baz"
+# bar
 #
 function get_json_value () {
     sed -n 's/.*"'"$*"'": *"\([^"]*\)".*/\1/p' | head -n 1
 }
 
 #
-# Configures variables based on a the docker-machine inspect from $DOCKER_MACHINE_NAME
+# Configures variables based on the output of `docker-machine inspect $DOCKER_MACHINE_NAME`
 #
 function configure_docker_machine {
-  DOCKER_HOST_NAME=$DOCKER_MACHINE_NAME
-  DOCKER_MACHINE_INSPECT=$(docker-machine inspect $DOCKER_MACHINE_NAME)
+  DOCKER_HOST_NAME="$DOCKER_MACHINE_NAME"
+  DOCKER_MACHINE_INSPECT=$(docker-machine inspect "$DOCKER_MACHINE_NAME")
   DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "SSHUser")
   DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "IPAddress")
   DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "StorePath")
@@ -723,11 +728,6 @@ function sync {
   done
 }
 
-function docker_host_ssh {
-  $SSH_CO
-  # TODO: or boot2docker ssh
-}
-
 #
 # Usage: initial_sync PATHS
 #
@@ -797,7 +797,7 @@ function instructions {
   echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
   echo -e
   echo -e "Options:"
-  echo -e "  -n, --machine-name name\t\tWhen suplied syncs with the given docker machine host"
+  echo -e "  -m, --machine-name name\t\tWhen suplied syncs with the given docker machine host"
   echo -e "  -s, --sync-path PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
   echo -e "  -e, --exclude-path PATH\t\tExclude PATH while syncing. Behaves identically to rsync's --exclude parameter. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
   echo -e "  -c, --compose-file COMPOSE_FILE\tRead in this docker-compose file and sync any volumes specified in it. Default: $DEFAULT_COMPOSE_FILE"
@@ -1128,7 +1128,7 @@ function handle_command {
         log_level="$2"
         shift
         ;;
-      -n|--machine-name)
+      -m|--machine-name)
         assert_valid_arg "$2" "$key"
         DOCKER_MACHINE_NAME="$2"
         shift

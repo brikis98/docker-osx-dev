@@ -6,6 +6,7 @@
 source src/docker-osx-dev "test_mode"
 load test_helper
 
+
 @test "index_of doesn't find match in empty array" {
   array=()
   run index_of "foo" "${array[@]}"
@@ -414,6 +415,30 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   export PATHS_TO_SYNC="/some/path"
   run find_path_to_sync_parent "/some/path/.git/foo"
   assert_output '/some/path'
+}
+
+@test "get_json should get value for a single key json" {
+  output=$(echo -e '{ "foo": "bar" }' | get_json_value "foo")
+
+  assert_output "bar"
+}
+
+@test "get_json should get value for a nested json" {
+  output=$(echo -e '{ "foo": { "bar": "baz" } }' | get_json_value "bar")
+
+  assert_output "baz"
+}
+
+@test "get_json should get value for a json for a key that appears twice" {
+  output=$(echo -e '{ "foo": { "k": "first" },\n "k": "second" }' | get_json_value "k")
+
+  assert_output "first"
+}
+
+@test "get_json should not get value for a json for a non existent key" {
+  output=$(echo -e '{ "foo": "val1", "bar": "val2" }' | get_json_value "baz")
+
+  assert_output ""
 }
 
 @test "init_docker_host should call configure_boot2docker set DOCKER_HOST vars" {
