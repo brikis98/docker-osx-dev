@@ -1015,6 +1015,7 @@ function configure_includes {
 function watch_and_sync {
   log_info "Starting docker-osx-dev file syncing"
   init_docker_host
+  install_rsync_on_docker_host
   initial_sync
   watch
 }
