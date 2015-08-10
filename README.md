@@ -144,6 +144,28 @@ http://dockerhost:5000
 When you install docker-osx-dev, it adds an entry to your `/etc/hosts` file so
 that `http://dockerhost` works as a URL for testing your Docker containers.
 
+# docker-machine support
+
+`docker-machine` support is experimental. You can use it as the way it is used for
+`boot2docker`, but run `docker-machine env` before. So as an example, run as:
+
+```
+> docker-machine create --driver virtualbox <machine-name>
+> eval "$(docker-machine env <machine-name>)"
+> docker-osx-dev install
+> cd /foo/bar
+> docker-osx-dev
+[INFO] Performing initial sync of paths: /foo/bar
+[INFO] Watching: /foo/bar
+```
+
+In this case, `docker-osx-dev` will use the machine defined in the `DOCKER_MACHINE_NAME` env var,
+defined by `docker-machine env`. Alternatively, use the `--machine-name <machine-name>` argument.
+
+Note: when running `docker-osx-dev` for `boot2docker`, please make sure the env var `DOCKER_MACHINE_NAME`
+is not defined.
+
+
 # How it works
 
 The `install command` installs all the software you need:

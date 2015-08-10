@@ -71,3 +71,14 @@ assert() {
     flunk "failed: $@"
   fi
 }
+
+stub() {
+  [ -d "$BATS_TEST_DIRNAME/stub" ] || mkdir "$BATS_TEST_DIRNAME/stub"
+  #touch "$BATS_TEST_DIRNAME/stub/$1"
+  echo "echo -e '$2'" > "$BATS_TEST_DIRNAME/stub/$1"
+  chmod +x "$BATS_TEST_DIRNAME/stub/$1"
+}
+
+rm_stubs() {
+  rm -rf "$BATS_TEST_DIRNAME/stub"
+}
