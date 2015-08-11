@@ -24,13 +24,15 @@ with Docker on OS X](http://www.ybrikman.com/writing/2015/05/19/docker-osx-dev/)
 
 # Status
 
-Alpha. I've tested it on my own computer and am able to code productively, but
-I welcome others to try it and give me feedback (or submit pull requests!).
+Beta. A number of developers are successfully using and contributing to
+docker-osx-dev. It still has some rough edges, but it works well, and makes
+the docker experience on OS X much better. Give it a try, share your feedback, 
+and submit some pull requests!
 
 Note: this project is inherently a temporary workaround. I hope that in the 
 future, someone will build a better alternative to vboxsf for mounting source 
-code from OS X, and makes this entire project obsolete. Until that day comes, I 
-will continue to use these hacky scripts to keep myself productive.
+code from OS X, and thereby make this entire project obsolete. Until that day 
+comes, I will continue to use the docker-osx-dev scripts to keep myself productive.
 
 # Install
 
