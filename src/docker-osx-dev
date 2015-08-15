@@ -381,27 +381,13 @@ function init_boot2docker {
 ################################################################################
 
 #
-# Read a json string from stdin and a key as argument, does a single string match and
-# returns the first string value that matches the given key
-# Examples:
-# $ echo -e '{ "foo": "bar" }' | get_json_value "foo"
-# bar
-# $ echo -e '{ "foo": { "baz": "bar" } }' | get_json_value "baz"
-# bar
-#
-function get_json_value () {
-    sed -n 's/.*"'"$*"'": *"\([^"]*\)".*/\1/p' | head -n 1
-}
-
-#
 # Configures variables based on the output of `docker-machine inspect $DOCKER_MACHINE_NAME`
 #
 function configure_docker_machine {
   DOCKER_HOST_NAME="$DOCKER_MACHINE_NAME"
-  DOCKER_MACHINE_INSPECT=$(docker-machine inspect "$DOCKER_MACHINE_NAME")
-  DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "SSHUser")
-  DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "IPAddress")
-  DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "StorePath")
+  DOCKER_HOST_USER=$(docker-machine inspect --format='{{.Driver.SSHUser}}' "$DOCKER_MACHINE_NAME" 2>&1)
+  DOCKER_HOST_IP=$(docker-machine inspect --format='{{.Driver.IPAddress}}' "$DOCKER_MACHINE_NAME" 2>&1)
+  DOCKER_MACHINE_STORE_PATH=$(docker-machine inspect --format='{{.StorePath}}' "$DOCKER_MACHINE_NAME" 2>&1)
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
