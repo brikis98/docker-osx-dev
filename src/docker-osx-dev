@@ -290,14 +290,6 @@ function configure_boot2docker {
 }
 
 #
-# Returns the name of the Boot2Docker VM. This is the official identifier used
-# by VirtualBox.
-#
-function find_boot2docker_vm_name {
-  boot2docker cfg | grep "^VM = " | sed -e 's/VM = "\(.*\)"/\1/'
-}
-
-#
 # Usage: find_vboxsf_mounted_folders
 #
 # Returns mounted volumes with vboxsf-type in boot2docker instance.
@@ -323,12 +315,11 @@ function umount_vboxsf_mounted_folder {
 }
 
 #
-# Checks if the Boot2Docker VM has any VirtualBox shared folders. If so, prompt
+# Checks if the docker host has any VirtualBox shared folders. If so, prompt
 # the user if they would like to remove them, as they will void any benefits
 # from using rsync.
 #
 function check_for_shared_folders {
-  local readonly vm_name=$(find_boot2docker_vm_name)
   local readonly vbox_shared_folders=$(find_vboxsf_mounted_folders)
 
   if [[ ! -z "$vbox_shared_folders" ]]; then
@@ -414,7 +405,11 @@ function configure_docker_machine {
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
-  DOCKER_HOST_SSH_COMMAND="docker-machine ssh $DOCKER_MACHINE_NAME"
+  if [[ $CURRENT_LOG_LEVEL == "DEBUG" ]]; then
+    DOCKER_HOST_SSH_COMMAND="docker-machine -D ssh $DOCKER_MACHINE_NAME"
+  else
+    DOCKER_HOST_SSH_COMMAND="docker-machine ssh $DOCKER_MACHINE_NAME"
+  fi
   log_debug "Running for the docker-machine name: $DOCKER_MACHINE_NAME"
 }
 
@@ -426,6 +421,7 @@ function init_docker_machine {
   docker-machine start "$DOCKER_MACHINE_NAME"
   eval "$(docker-machine env $DOCKER_MACHINE_NAME)"
   configure_docker_machine
+  check_for_shared_folders
 }
 
 ################################################################################
@@ -437,7 +433,7 @@ function init_docker_machine {
 # Initializes boot2docker, unless DOCKER_MACHINE_NAME is defined
 #
 function init_docker_host {
-  if [ -n "$DOCKER_MACHINE_NAME" ]; then
+  if [[ -n "$DOCKER_MACHINE_NAME" ]]; then
     init_docker_machine
   else
     init_boot2docker
@@ -756,6 +752,7 @@ function initial_sync {
   log_debug "Creating parent directories in Docker VM: $ssh_cmd"
   $DOCKER_HOST_SSH_COMMAND "$ssh_cmd"
 
+  log_debug "Starting sync paths: $paths_to_sync"
   sync "${paths_to_sync[@]}"
   log_info "Initial sync done"
 }
