@@ -388,6 +388,7 @@ function configure_docker_machine {
   DOCKER_HOST_USER=$(docker-machine inspect --format='{{.Driver.SSHUser}}' "$DOCKER_MACHINE_NAME" 2>&1)
   DOCKER_HOST_IP=$(docker-machine inspect --format='{{.Driver.IPAddress}}' "$DOCKER_MACHINE_NAME" 2>&1)
   DOCKER_MACHINE_STORE_PATH=$(docker-machine inspect --format='{{.StorePath}}' "$DOCKER_MACHINE_NAME" 2>&1)
+  DOCKER_MACHINE_DRIVER_NAME=$(docker-machine inspect --format='{{.DriverName}}' "$DOCKER_MACHINE_NAME" 2>&1)
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
@@ -407,7 +408,9 @@ function init_docker_machine {
   docker-machine start "$DOCKER_MACHINE_NAME"
   eval "$(docker-machine env $DOCKER_MACHINE_NAME)"
   configure_docker_machine
-  check_for_shared_folders
+  if [[ $DOCKER_MACHINE_DRIVER_NAME == "virtualbox" ]]; then
+    check_for_shared_folders
+  fi
 }
 
 ################################################################################
