@@ -417,49 +417,6 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   assert_output '/some/path'
 }
 
-@test "get_json should get value for a single key json" {
-  output=$(echo -e '{ "foo": "bar" }' | get_json_value "foo")
-
-  assert_output "bar"
-}
-
-@test "get_json should get value for a nested json" {
-  output=$(echo -e '{ "foo": { "bar": "baz" } }' | get_json_value "bar")
-
-  assert_output "baz"
-}
-
-@test "get_json should get value for a json with a key that appears twice" {
-  output=$(echo -e '{ "foo": { "k": "first" },\n "k": "second" }' | get_json_value "k")
-
-  assert_output "first"
-}
-
-@test "get_json should return empty for a json with a non existent key" {
-  output=$(echo -e '{ "foo": "val1", "bar": "val2" }' | get_json_value "baz")
-
-  assert_output ""
-}
-
-@test "get_json should return empty for a json with the value as integer" {
-  output=$(echo -e '{ "foo": 22 }' | get_json_value "foo")
-
-  assert_output ""
-}
-
-@test "get_json should return empty for a json with the value as object" {
-  output=$(echo -e '{ "foo": {"bar" : "baz"} }' | get_json_value "foo")
-
-  assert_output ""
-}
-
-@test "get_json should return empty for a json with the value as array" {
-  output=$(echo -e '{ "foo": ["bar"] }' | get_json_value "foo")
-
-  assert_output ""
-}
-
-
 @test "init_docker_host should call configure_boot2docker set DOCKER_HOST vars" {
   unset DOCKER_HOST_NAME
   stub boot2docker 'SSHKey = "/Users/someone/.ssh/id_boot2docker"'
@@ -476,27 +433,19 @@ export NEW_ENV_VARIABLE_2=VALUE2"
 
 @test "configure_docker_machine should set DOCKER_HOST vars" {
   export DOCKER_MACHINE_NAME="some-machine"
-  docker_inspect_output=$(cat <<EOF
-  {
-      "Driver": {
-          "SSHUser": "user",
-          "IPAddress": "10.254.1.14"
-      },
-      "StorePath": "/Users/someone/.docker/machine/machines/some-machine"
-  }
-EOF
-)
-  stub docker-machine "$docker_inspect_output"
+  # docker-machine will allways output DOCKER_INSPECT_OUTPUT
+  # although it would be good to stub each subcommand/param
+  stub docker-machine "DOCKER_INSPECT_OUTPUT"
   export PATH="$BATS_TEST_DIRNAME/stub:$PATH"
 
   configure_docker_machine
 
   assert_equal "some-machine" "$DOCKER_HOST_NAME"
-  assert_equal "user" "$DOCKER_HOST_USER"
-  assert_equal "10.254.1.14" "$DOCKER_HOST_IP"
+  assert_equal "DOCKER_INSPECT_OUTPUT" "$DOCKER_HOST_USER"
+  assert_equal "DOCKER_INSPECT_OUTPUT" "$DOCKER_HOST_IP"
 
-  assert_equal "/Users/someone/.docker/machine/machines/some-machine/id_rsa" "$DOCKER_HOST_SSH_KEY"
-  assert_equal "user@10.254.1.14" "$DOCKER_HOST_SSH_URL"
+  assert_equal "DOCKER_INSPECT_OUTPUT/id_rsa" "$DOCKER_HOST_SSH_KEY"
+  assert_equal "DOCKER_INSPECT_OUTPUT@DOCKER_INSPECT_OUTPUT" "$DOCKER_HOST_SSH_URL"
   assert_equal "docker-machine ssh some-machine" "$DOCKER_HOST_SSH_COMMAND"
   rm_stubs
 }

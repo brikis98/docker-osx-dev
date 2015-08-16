@@ -380,17 +380,12 @@ function init_boot2docker {
 # docker-machine manipulation
 ################################################################################
 
+
 #
-# Read a json string from stdin and a key as argument, does a single string match and
-# returns the first string value that matches the given key
-# Examples:
-# $ echo -e '{ "foo": "bar" }' | get_json_value "foo"
-# bar
-# $ echo -e '{ "foo": { "baz": "bar" } }' | get_json_value "baz"
-# bar
+# Inspect especific configuration about the docker-machine
 #
-function get_json_value () {
-    sed -n 's/.*"'"$*"'": *"\([^"]*\)".*/\1/p' | head -n 1
+function inspect_docker_machine {
+  docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1
 }
 
 #
@@ -398,10 +393,10 @@ function get_json_value () {
 #
 function configure_docker_machine {
   DOCKER_HOST_NAME="$DOCKER_MACHINE_NAME"
-  DOCKER_MACHINE_INSPECT=$(docker-machine inspect "$DOCKER_MACHINE_NAME")
-  DOCKER_HOST_USER=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "SSHUser")
-  DOCKER_HOST_IP=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "IPAddress")
-  DOCKER_MACHINE_STORE_PATH=$(echo -e "$DOCKER_MACHINE_INSPECT" | get_json_value "StorePath")
+  DOCKER_HOST_USER=$(inspect_docker_machine "{{.Driver.SSHUser}}")
+  DOCKER_HOST_IP=$(inspect_docker_machine "{{.Driver.IPAddress}}")
+  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.StorePath}}")
+  DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
@@ -410,7 +405,6 @@ function configure_docker_machine {
   else
     DOCKER_HOST_SSH_COMMAND="docker-machine ssh $DOCKER_MACHINE_NAME"
   fi
-  log_debug "Running for the docker-machine name: $DOCKER_MACHINE_NAME"
 }
 
 #
@@ -421,7 +415,9 @@ function init_docker_machine {
   docker-machine start "$DOCKER_MACHINE_NAME"
   eval "$(docker-machine env $DOCKER_MACHINE_NAME)"
   configure_docker_machine
-  check_for_shared_folders
+  if [[ $DOCKER_MACHINE_DRIVER_NAME == "virtualbox" ]]; then
+    check_for_shared_folders
+  fi
 }
 
 ################################################################################
