@@ -380,15 +380,23 @@ function init_boot2docker {
 # docker-machine manipulation
 ################################################################################
 
+
+#
+# Inspect especific configuration about the docker-machine
+#
+function inspect_docker_machine {
+  docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1
+}
+
 #
 # Configures variables based on the output of `docker-machine inspect $DOCKER_MACHINE_NAME`
 #
 function configure_docker_machine {
   DOCKER_HOST_NAME="$DOCKER_MACHINE_NAME"
-  DOCKER_HOST_USER=$(docker-machine inspect --format='{{.Driver.SSHUser}}' "$DOCKER_MACHINE_NAME" 2>&1)
-  DOCKER_HOST_IP=$(docker-machine inspect --format='{{.Driver.IPAddress}}' "$DOCKER_MACHINE_NAME" 2>&1)
-  DOCKER_MACHINE_STORE_PATH=$(docker-machine inspect --format='{{.StorePath}}' "$DOCKER_MACHINE_NAME" 2>&1)
-  DOCKER_MACHINE_DRIVER_NAME=$(docker-machine inspect --format='{{.DriverName}}' "$DOCKER_MACHINE_NAME" 2>&1)
+  DOCKER_HOST_USER=$(inspect_docker_machine "{{.Driver.SSHUser}}")
+  DOCKER_HOST_IP=$(inspect_docker_machine "{{.Driver.IPAddress}}")
+  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.StorePath}}")
+  DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
@@ -397,7 +405,6 @@ function configure_docker_machine {
   else
     DOCKER_HOST_SSH_COMMAND="docker-machine ssh $DOCKER_MACHINE_NAME"
   fi
-  log_debug "Running for the docker-machine name: $DOCKER_MACHINE_NAME"
 }
 
 #
