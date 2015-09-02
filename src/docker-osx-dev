@@ -678,7 +678,7 @@ function do_rsync {
   local readonly path="$1"
   local readonly path_to_sync=$(find_path_to_sync_parent "$path")
 
-  if [[ -z "$paths_to_sync" ]]; then
+  if [[ -z "$path_to_sync" ]]; then
     log_error "Internal error: can't sync '$path' because it doesn't seem to be part of any paths configured for syncing: $PATHS_TO_SYNC"
   else
     local readonly parent_folder=$(dirname "$path_to_sync")
