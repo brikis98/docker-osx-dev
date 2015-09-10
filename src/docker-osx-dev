@@ -1038,7 +1038,7 @@ function install {
 #
 function update_self {
   log_info "Updating to the latest docker-osx-dev"
-  local readonly current_file=$(which docker-osx-dev)
+  local readonly current_file="${BASH_SOURCE[0]}"
   local readonly backup_file="$current_file.old"
   log_info "  -- Backing up $current_file to $backup_file"
   cp "$current_file" "$backup_file"
