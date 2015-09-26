@@ -415,7 +415,7 @@ function configure_docker_machine {
 function init_docker_machine {
   log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
   docker-machine start "$DOCKER_MACHINE_NAME"
-  eval "$(docker-machine env $DOCKER_MACHINE_NAME)"
+  eval "$(docker-machine env --shell bash $DOCKER_MACHINE_NAME)"
   configure_docker_machine
   if [[ $DOCKER_MACHINE_DRIVER_NAME == "virtualbox" ]]; then
     check_for_shared_folders
