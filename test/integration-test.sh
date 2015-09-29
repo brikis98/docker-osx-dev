@@ -8,6 +8,7 @@
 readonly TEST_FOLDER="test-project"
 readonly TEST_FILE="test-file"
 readonly TEST_FILE_CONTENTS="test file contents"
+readonly TEST_IMAGE="gliderlabs/alpine:3.2"
 
 # Console colors
 readonly COLOR_INFO='\033[0;3m[TEST_INFO]'
@@ -59,11 +60,11 @@ function cleanup {
 function create_machine {
   log_info "Creating machine"
   docker-machine create "$VM_NAME" --driver=virtualbox
-  eval $(docker-machine env "$VM_NAME")
 }
 
 function start_machine {
   log_info "Starting machine"
+  eval $(docker-machine env "$VM_NAME")
   docker-machine start "$VM_NAME"
 }
 
@@ -90,13 +91,13 @@ function test_docker_osx_dev {
 
 function test_docker_run {
   log_info "Testing docker run with Alpine Linux image"
-  local readonly out=$(docker run --rm gliderlabs/alpine:3.1 uname)
+  local readonly out=$(docker run --rm $TEST_IMAGE uname)
   assert_equals "$out" "Linux"
 }
 
 function test_docker_mount {
   log_info "Testing mounting a folder with Alpine Linux image"
-  local readonly out=$(docker run --rm -v $(pwd):/src gliderlabs/alpine:3.2 cd /src && cat foo)
+  local readonly out=$(docker run --rm -v $(pwd):/src gliderlabs/alpine:3.2 /bin/sh -c "cat /src/$TEST_FOLDER/$TEST_FILE")
   assert_equals "$out" "$TEST_FILE_CONTENTS"
 }
 
