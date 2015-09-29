@@ -5,3 +5,6 @@
 
 # Vagrant
 .vagrant
+
+# Docker test project
+test-project
