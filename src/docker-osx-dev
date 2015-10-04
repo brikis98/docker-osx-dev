@@ -34,8 +34,10 @@ readonly SYNC_COMMAND="sync"
 readonly WATCH_ONLY_COMMAND="watch-only"
 readonly SYNC_ONLY_COMMAND="sync-only"
 readonly INSTALL_COMMAND="install"
+readonly UPDATE_SELF_COMMAND="update-self"
 readonly TEST_COMMAND="test_mode"
 readonly DEFAULT_COMMAND="$SYNC_COMMAND"
+readonly LATEST_RELEASE="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/docker-osx-dev"
 
 # docker host constants
 
@@ -792,6 +794,7 @@ function instructions {
   echo -e "  $WATCH_ONLY_COMMAND\tWatch the file system for changes, without syncing first."
   echo -e "  $SYNC_ONLY_COMMAND\tSync the file system and exit, without watching afterwords."
   echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
+  echo -e "  $UPDATE_SELF_COMMAND\tFetch and install the latest docker-osx-dev and all of its dependencies."
   echo -e
   echo -e "Options:"
   echo -e "  -m, --machine-name name\t\tWhen suplied syncs with the given docker machine host"
@@ -1031,6 +1034,23 @@ function install {
 }
 
 #
+# Fetch the latest docker-osx-dev script, and then run install
+#
+function update_self {
+  log_info "Updating to the latest docker-osx-dev"
+  local readonly current_file="${BASH_SOURCE[0]}"
+  local readonly backup_file="$current_file.old"
+  log_info "  -- Backing up $current_file to $backup_file"
+  cp "$current_file" "$backup_file"
+
+  log_info "  -- Grabbing latest version from $LATEST_RELEASE"
+  curl -s -o "$current_file" $LATEST_RELEASE
+
+  log_info "  -- Calling 'docker-osx-dev install'"
+  docker-osx-dev install
+}
+
+#
 # Executes no code or side effects. Used only at test time to make it easy to
 # "source" this script.
 #
@@ -1097,6 +1117,9 @@ function handle_command {
         ;;
       "$INSTALL_COMMAND")
         cmd="$INSTALL_COMMAND"
+        ;;
+      "$UPDATE_SELF_COMMAND")
+        cmd="$UPDATE_SELF_COMMAND"
         ;;
       "$TEST_COMMAND")
         cmd="$TEST_COMMAND"
@@ -1172,6 +1195,10 @@ function handle_command {
     "$INSTALL_COMMAND")
       configure_log_level "$log_level"
       install
+      ;;
+    "$UPDATE_SELF_COMMAND")
+      configure_log_level "$log_level"
+      update_self
       ;;
     "$TEST_COMMAND")
       test_mode
