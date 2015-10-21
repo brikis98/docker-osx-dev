@@ -36,6 +36,7 @@ readonly SYNC_ONLY_COMMAND="sync-only"
 readonly INSTALL_COMMAND="install"
 readonly TEST_COMMAND="test_mode"
 readonly DEFAULT_COMMAND="$SYNC_COMMAND"
+readonly BIN_DIR="/usr/local/bin"
 
 # docker host constants
 
@@ -49,6 +50,9 @@ readonly DEFAULT_PATHS_TO_SYNC="."
 readonly DEFAULT_EXCLUDES=".git"
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
 readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file"
+
+# docker-osx-dev repo constants
+readonly RSYNC_BINARY_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/lib/rsync"
 
 # Global variables. The should only ever be set by the corresponding
 # configure_XXX functions.
@@ -441,6 +445,7 @@ function init_docker_host {
 #
 # Installs rsync on the Boot2Docker VM, unless it's already installed.
 # If the main repository is down, rsync will be installed from a mirror
+# If the mirror is down, download rsync binary and place in Boot2Docker VM
 #
 function install_rsync_on_docker_host {
   log_info "Installing rsync in the Docker Host image"
@@ -455,7 +460,8 @@ function install_rsync_on_docker_host {
   local readonly RSYNC_CMD="wget $MIRROR/$RSYNC -P $DIR; tce-load -i $DIR/$RSYNC"
 
   $DOCKER_HOST_SSH_COMMAND "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi" ||
-  $DOCKER_HOST_SSH_COMMAND "$ACL_CMD; $ATTR_CMD; $RSYNC_CMD"
+  $DOCKER_HOST_SSH_COMMAND "$ACL_CMD; $ATTR_CMD; $RSYNC_CMD" ||
+  $DOCKER_HOST_SSH_COMMAND "sudo wget -P $BIN_DIR $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync"
 }
 
 
