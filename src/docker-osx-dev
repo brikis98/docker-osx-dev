@@ -450,12 +450,23 @@ function init_docker_host {
 function install_rsync_on_docker_host {
   log_info "Installing rsync in the Docker Host image"
 
-  $DOCKER_HOST_SSH_COMMAND "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi" ||
-  $DOCKER_HOST_SSH_COMMAND "echo 'http://distro.ibiblio.org/' > /opt/tcemirror; tce-load -wi rsync;" ||
-  $DOCKER_HOST_SSH_COMMAND "sudo wget -P $BIN_DIR $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync"
-
-  # Reset tcemirror back to default
-  $DOCKER_HOST_SSH_COMMAND "echo 'http://repo.tinycorelinux.net/' > /opt/tcemirror"
+  if $DOCKER_HOST_SSH_COMMAND "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi" ; then
+    log_info "Successfully installed rsync in the Docker Host Image"
+  else
+    log_info "Failed to install rsync from existing mirror"
+    log_info "Backing up existing mirror and changing mirror to http://distro.iblibio.org/"
+    $DOCKER_HOST_SSH_COMMAND "cat /opt/tcemirror > /tmp/tcemirror.bak"
+    $DOCKER_HOST_SSH_COMMAND "echo 'http://distro.ibiblio.org/' > /opt/tcemirror"
+    if $DOCKER_HOST_SSH_COMMAND "tce-load -wi rsync" ; then
+      log_info "Successfully installed rsync from http://distro.ibiblio.org/"
+    else
+      log_info "Failed to install rsync from http://distro.ibiblio.org/"
+      log_info "Installing rsync from GitHub"
+      $DOCKER_HOST_SSH_COMMAND "sudo wget -P $BIN_DIR $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync"
+    fi
+    log_info "Restoring original tce-load mirror"
+    $DOCKER_HOST_SSH_COMMAND "cat /tmp/tcemirror.bak > opt/tcemirror"
+  fi
 }
 
 ################################################################################
