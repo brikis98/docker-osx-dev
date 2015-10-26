@@ -450,20 +450,13 @@ function init_docker_host {
 function install_rsync_on_docker_host {
   log_info "Installing rsync in the Docker Host image"
 
-  local readonly MIRROR="http://distro.ibiblio.org/tinycorelinux/6.x/x86_64/tcz"
-  local readonly DIR="/tmp/tce/optional/"
-  local readonly ACL="acl.tcz"
-  local readonly ATTR="attr.tcz"
-  local readonly RSYNC="rsync.tcz"
-  local readonly ACL_CMD="wget $MIRROR/$ACL -P $DIR; tce-load -i $DIR/$ACL"
-  local readonly ATTR_CMD="wget $MIRROR/$ATTR -P $DIR; tce-load -i $DIR/$ATTR"
-  local readonly RSYNC_CMD="wget $MIRROR/$RSYNC -P $DIR; tce-load -i $DIR/$RSYNC"
-
   $DOCKER_HOST_SSH_COMMAND "if ! type rsync > /dev/null 2>&1; then tce-load -wi rsync; fi" ||
-  $DOCKER_HOST_SSH_COMMAND "$ACL_CMD; $ATTR_CMD; $RSYNC_CMD" ||
+  $DOCKER_HOST_SSH_COMMAND "echo 'http://distro.ibiblio.org/' > /opt/tcemirror; tce-load -wi rsync;" ||
   $DOCKER_HOST_SSH_COMMAND "sudo wget -P $BIN_DIR $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync"
-}
 
+  # Reset tcemirror back to default
+  $DOCKER_HOST_SSH_COMMAND "echo 'http://repo.tinycorelinux.net/' > /opt/tcemirror"
+}
 
 ################################################################################
 # Environment setup
