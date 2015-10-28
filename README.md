@@ -283,6 +283,8 @@ doesn't work out:
 5. [Hodor](https://github.com/gansbrest/hodor). Uses the [Unison File 
    Synchronizer](http://www.cis.upenn.edu/~bcpierce/unison/) to sync files. I
    have not had a chance to try this project out yet.
+6. [docker-machine-nfs](https://github.com/adlogix/docker-machine-nfs): Activates NFS 
+   for an existing machine.
 
 # License
 
