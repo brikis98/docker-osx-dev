@@ -719,7 +719,7 @@ function do_rsync {
 
     local readonly rsh_flag="--rsh=\"ssh -i $DOCKER_HOST_SSH_KEY -o IdentitiesOnly=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null\""
 
-    local readonly rsync_cmd="rsync $RSYNC_FLAGS $include_flags $exclude_flags $rsh_flag $path_to_sync $DOCKER_HOST_SSH_URL:$parent_folder"
+    local readonly rsync_cmd="rsync $RSYNC_FLAGS $include_flags $exclude_flags $rsh_flag $path_to_sync $DOCKER_HOST_SSH_URL:$parent_folder 2>&1 | grep -v \"^Warning: Permanently added\""
     log_debug "$rsync_cmd"
 
     eval "$rsync_cmd" 2>&1 | log_info
