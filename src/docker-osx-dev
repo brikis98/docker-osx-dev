@@ -623,6 +623,16 @@ function brew_install {
   else
     log_info "Installing $readable_name"
     eval "$brew_command install $package_name"
+
+    # It seems that brew install can fail to install a dependency, but exit
+    # without an error code, so the set -e flag does not help us. Example:
+    # https://github.com/brikis98/docker-osx-dev/issues/124
+    # Therefore, explicitly check that the dependency was installed before
+    # proceeding.
+    if ! type "$command_name" > /dev/null 2>&1; then
+      log_error "Failed to install dependency $readable_name. Check the log output above for reasons."
+      exit 1
+    fi
   fi
 }
 
@@ -633,7 +643,7 @@ function install_dependencies {
   log_info "Updating HomeBrew"
   brew update
 
-  brew_install "caskroom/cask/brew-cask" "Cask" "" false
+  brew_install "caskroom/cask/brew-cask" "Cask" "brew cask" false
   brew_install "boot2docker" "Boot2Docker" "boot2docker" false
   brew_install "docker-compose" "Docker Compose" "docker-compose" false
   brew_install "docker-machine" "Docker Machine" "docker-machine" false
