@@ -371,14 +371,13 @@ function init_boot2docker {
     boot2docker init
   fi
 
-  check_for_shared_folders
-
   if ! is_boot2docker_running; then
     log_info "Starting Boot2Docker VM"
     boot2docker start --vbox-share=disable
   fi
 
   configure_boot2docker
+  check_for_shared_folders
 }
 
 ################################################################################
