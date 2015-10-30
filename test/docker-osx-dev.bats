@@ -419,7 +419,7 @@ export NEW_ENV_VARIABLE_2=VALUE2"
 
 @test "init_docker_host should call configure_boot2docker set DOCKER_HOST vars" {
   unset DOCKER_HOST_NAME
-  stub boot2docker 'SSHKey = "/Users/someone/.ssh/id_boot2docker"'
+  stub boot2docker 'echo "SSHKey = \"/Users/someone/.ssh/id_boot2docker\""'
   export PATH="$BATS_TEST_DIRNAME/stub:$PATH"
 
   init_docker_host
@@ -435,7 +435,7 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   export DOCKER_MACHINE_NAME="some-machine"
   # docker-machine will allways output DOCKER_INSPECT_OUTPUT
   # although it would be good to stub each subcommand/param
-  stub docker-machine "DOCKER_INSPECT_OUTPUT"
+  stub docker-machine "echo 'DOCKER_INSPECT_OUTPUT'"
   export PATH="$BATS_TEST_DIRNAME/stub:$PATH"
 
   configure_docker_machine
@@ -450,3 +450,22 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   rm_stubs
 }
 
+@test "init_boot2docker should check for and unmount VirtualBox shared folders" {
+  stub boot2docker '
+case "$@" in
+  "ssh mount")
+    echo "none on /Users type vboxsf (rw,nodev,relatime)"
+    ;;
+  "ssh sudo umount "*)
+    echo "[TEST] boot2docker $@"
+    ;;
+esac
+'
+  export PATH="$BATS_TEST_DIRNAME/stub:$PATH"
+
+  run eval 'yes | init_boot2docker'
+
+  assert_line "[TEST] boot2docker ssh sudo umount /Users"
+
+  rm_stubs
+}
