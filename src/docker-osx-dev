@@ -389,7 +389,8 @@ function init_boot2docker {
 # Inspect especific configuration about the docker-machine
 #
 function inspect_docker_machine {
-  docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1
+  local result=$(docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1)
+  echo ${result/<no value>//}
 }
 
 #
@@ -399,7 +400,7 @@ function configure_docker_machine {
   DOCKER_HOST_NAME="$DOCKER_MACHINE_NAME"
   DOCKER_HOST_USER=$(inspect_docker_machine "{{.Driver.SSHUser}}")
   DOCKER_HOST_IP=$(inspect_docker_machine "{{.Driver.IPAddress}}")
-  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.HostOptions.AuthOptions.StorePath}}")
+  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.StorePath}}{{.HostOptions.AuthOptions.StorePath}}")
   DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
