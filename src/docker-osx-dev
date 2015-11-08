@@ -390,7 +390,7 @@ function init_boot2docker {
 #
 function inspect_docker_machine {
   local result=$(docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1)
-  echo ${result/<no value>//}
+  echo ${result/<no value>/}
 }
 
 #
@@ -431,7 +431,7 @@ function init_docker_machine {
 # Returns true iff the docker-machine VM is running
 #
 function is_docker_machine_running {
-  log_info "testing if docker machine is running"
+  log_info "Testing if docker machine is running"
   local readonly status=$(docker-machine status $DOCKER_MACHINE_NAME 2>&1)
   test "$status" = "Running"
 }
