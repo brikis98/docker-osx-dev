@@ -421,26 +421,14 @@ function configure_docker_machine {
 # Initializes and starts up the docker-machine VM.
 #
 function init_docker_machine {
-  if ! is_docker_machine_running; then
-    log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
-    docker-machine start "$DOCKER_MACHINE_NAME"
-  fi
+  log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
+  docker-machine start "$DOCKER_MACHINE_NAME"
   eval "$(docker-machine env --shell bash $DOCKER_MACHINE_NAME)"
   configure_docker_machine
   if [[ $DOCKER_MACHINE_DRIVER_NAME == "virtualbox" ]]; then
     check_for_shared_folders
   fi
 }
-
-#
-# Returns true iff the docker-machine VM is running
-#
-function is_docker_machine_running {
-  log_info "Testing if docker machine is running"
-  local readonly status=$(docker-machine status $DOCKER_MACHINE_NAME 2>&1)
-  test "$status" = "Running"
-}
-
 
 ################################################################################
 # Generic docker host manipulation
