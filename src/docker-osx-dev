@@ -390,8 +390,11 @@ function init_boot2docker {
 #
 function inspect_docker_machine {
   local result=$(docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1)
-  echo ${result}
-  test "${result}" != "<no value>"
+  if test "${result}" != "<no value>"; then
+    echo ${result}
+  else
+    return -1
+  fi
 }
 
 #
@@ -402,7 +405,7 @@ function configure_docker_machine {
   DOCKER_HOST_USER=$(inspect_docker_machine "{{.Driver.SSHUser}}")
   DOCKER_HOST_IP=$(inspect_docker_machine "{{.Driver.IPAddress}}")
   # Support both version 0.4.1 (and earlier) and 0.5.0 (and later)
-  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.HostOptions.AuthOptions.StorePath}}" || inspect_docker_machine "{{.StorePath}}")
+  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.StorePath}}" || inspect_docker_machine "{{.HostOptions.AuthOptions.StorePath}}")
   DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
