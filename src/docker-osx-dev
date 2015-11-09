@@ -386,10 +386,15 @@ function init_boot2docker {
 
 
 #
-# Inspect especific configuration about the docker-machine
+# Inspect specific configuration about the docker-machine vm
 #
 function inspect_docker_machine {
-  docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1
+  local result=$(docker-machine inspect --format="$*" "$DOCKER_MACHINE_NAME" 2>&1)
+  if test "${result}" != "<no value>"; then
+    echo ${result}
+  else
+    return -1
+  fi
 }
 
 #
@@ -399,7 +404,8 @@ function configure_docker_machine {
   DOCKER_HOST_NAME="$DOCKER_MACHINE_NAME"
   DOCKER_HOST_USER=$(inspect_docker_machine "{{.Driver.SSHUser}}")
   DOCKER_HOST_IP=$(inspect_docker_machine "{{.Driver.IPAddress}}")
-  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.StorePath}}")
+  # Support both version 0.4.1 (and earlier) and 0.5.0 (and later)
+  DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.StorePath}}" || inspect_docker_machine "{{.HostOptions.AuthOptions.StorePath}}")
   DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
@@ -415,13 +421,24 @@ function configure_docker_machine {
 # Initializes and starts up the docker-machine VM.
 #
 function init_docker_machine {
-  log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
-  docker-machine start "$DOCKER_MACHINE_NAME"
+  if ! is_docker_machine_running; then
+    log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
+    docker-machine start "$DOCKER_MACHINE_NAME"
+  fi
   eval "$(docker-machine env --shell bash $DOCKER_MACHINE_NAME)"
   configure_docker_machine
   if [[ $DOCKER_MACHINE_DRIVER_NAME == "virtualbox" ]]; then
     check_for_shared_folders
   fi
+}
+
+#
+# Returns true iff the docker-machine VM is running
+#
+function is_docker_machine_running {
+  log_info "Testing if docker machine is running"
+  local readonly status=$(docker-machine status $DOCKER_MACHINE_NAME 2>&1)
+  test "$status" = "Running"
 }
 
 ################################################################################
