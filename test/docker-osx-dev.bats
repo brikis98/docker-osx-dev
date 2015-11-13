@@ -417,6 +417,12 @@ export NEW_ENV_VARIABLE_2=VALUE2"
   assert_output '/some/path'
 }
 
+@test "find_path_to_sync_parent should match paths with weird characters" {
+  export PATHS_TO_SYNC='/some/path2()$HI'
+  run find_path_to_sync_parent '/some/path2()$HI/foo'
+  assert_output '/some/path2()$HI'
+}
+
 @test "init_docker_host should call configure_boot2docker set DOCKER_HOST vars" {
   unset DOCKER_HOST_NAME
   stub boot2docker 'echo "SSHKey = \"/Users/someone/.ssh/id_boot2docker\""'
