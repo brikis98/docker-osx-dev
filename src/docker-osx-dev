@@ -409,7 +409,12 @@ function configure_docker_machine {
   DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
-  DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
+  DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/machines/$DOCKER_MACHINE_NAME/id_rsa"
+
+  if [[ ! -f $DOCKER_HOST_SSH_KEY ]]; then
+    DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
+  fi
+
   if [[ $CURRENT_LOG_LEVEL == "DEBUG" ]]; then
     DOCKER_HOST_SSH_COMMAND="docker-machine -D ssh $DOCKER_MACHINE_NAME"
   else
