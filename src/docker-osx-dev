@@ -409,9 +409,11 @@ function configure_docker_machine {
   DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
 
   DOCKER_HOST_SSH_URL="$DOCKER_HOST_USER@$DOCKER_HOST_IP"
+  # 0.5.0 returns StorePath as a root directory /machine
   DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/machines/$DOCKER_MACHINE_NAME/id_rsa"
 
   if [[ ! -f $DOCKER_HOST_SSH_KEY ]]; then
+    # 0.4.1 returns StorePath as /machines/dev
     DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
   fi
 
