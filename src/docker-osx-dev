@@ -630,8 +630,12 @@ function brew_install {
       brew_command="brew cask"
     fi
 
-    log_info "Installing $readable_name"
-    eval "$brew_command install $package_name"
+    if eval "$brew_command list $package_name" > /dev/null 2>&1 ; then
+      log_warn "$readable_name is already installed by HomeBrew, skipping"
+    else
+      log_info "Installing $readable_name"
+      eval "$brew_command install $package_name"
+    fi
 
     # It seems that brew install can fail to install a dependency, but exit
     # without an error code, so the set -e flag does not help us. Example:
