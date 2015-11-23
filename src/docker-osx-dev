@@ -600,10 +600,19 @@ function check_prerequisites {
     log_error "This script should only be run on OS X"
     exit 1
   fi
+}
 
+#
+# Update Brew formulae and HomeBrew
+#
+# Non-breaking. Falls through with warning if fails.
+#
+function brew_update {
+  log_info "Updating HomeBrew"
   if ! type brew > /dev/null 2>&1 ; then
-    log_error "This script requires HomeBrew, but it's not installed. Aborting."
-    exit 1
+    log_warn "HomeBrew not found, attempting to continue without"
+  else
+    brew update
   fi
 }
 
@@ -627,28 +636,44 @@ function brew_install {
   local readonly command_name="$3"
   local readonly use_cask="$4"
 
-  local brew_command="brew"
-  if [[ "$use_cask" = true ]]; then
-    brew_command="brew cask"
-  fi
+  if ! type "$command_name" > /dev/null 2>&1 ; then
+    check_homebrew $readable_name
 
-  if eval "$brew_command list $package_name" > /dev/null 2>&1 ; then
-    log_warn "$readable_name is already installed by HomeBrew, skipping"
-  elif type "$command_name" > /dev/null 2>&1 ; then
-    log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
-  else
-    log_info "Installing $readable_name"
-    eval "$brew_command install $package_name"
-
-    # It seems that brew install can fail to install a dependency, but exit
-    # without an error code, so the set -e flag does not help us. Example:
-    # https://github.com/brikis98/docker-osx-dev/issues/124
-    # Therefore, explicitly check that the dependency was installed before
-    # proceeding.
-    if ! type "$command_name" > /dev/null 2>&1; then
-      log_error "Failed to install dependency $readable_name. Check the log output above for reasons."
-      exit 1
+    local brew_command="brew"
+    if [[ "$use_cask" = true ]]; then
+      brew_command="brew cask"
     fi
+
+    if eval "$brew_command list $package_name" > /dev/null 2>&1 ; then
+      log_warn "$readable_name is already installed by HomeBrew, skipping"
+    else
+      log_info "Installing $readable_name"
+      eval "$brew_command install $package_name"
+
+      # It seems that brew install can fail to install a dependency, but exit
+      # without an error code, so the set -e flag does not help us. Example:
+      # https://github.com/brikis98/docker-osx-dev/issues/124
+      # Therefore, explicitly check that the dependency was installed before
+      # proceeding.
+      if ! type "$command_name" > /dev/null 2>&1; then
+        log_error "Failed to install dependency $readable_name. Check the log output above for reasons."
+        exit 1
+      fi
+    fi
+  else
+    log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
+  fi
+}
+
+#
+# Checks if HomeBrew is installed.
+# Called only in case of a missing dependency.
+#
+function check_homebrew {
+  local readonly missing_package="$1"
+  if ! type brew > /dev/null 2>&1 ; then
+    log_error "HomeBrew is required to install $missing_package, but it's not installed. Aborting."
+    exit 1
   fi
 }
 
@@ -656,8 +681,7 @@ function brew_install {
 # Installs all the dependencies for docker-osx-dev.
 #
 function install_dependencies {
-  log_info "Updating HomeBrew"
-  brew update
+  brew_update
 
   brew_install "caskroom/cask/brew-cask" "Cask" "brew cask" false
   brew_install "boot2docker" "Boot2Docker" "boot2docker" false
