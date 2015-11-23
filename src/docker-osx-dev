@@ -610,7 +610,7 @@ function check_prerequisites {
 function brew_update {
   log_info "Updating HomeBrew"
   if ! type brew > /dev/null 2>&1 ; then
-    log_warn "HomeBrew not found, attempting to continue without"
+    log_warn "HomeBrew not found, will not attempt to update it"
   else
     brew update
   fi
