@@ -51,7 +51,7 @@ readonly DEFAULT_IGNORE_FILE=".dockerignore"
 readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file -l"
 
 # docker-osx-dev repo constants
-readonly RSYNC_BINARY_URL="https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/lib/rsync"
+readonly RSYNC_BINARY_URL="https://github.com/brikis98/docker-osx-dev/blob/master/lib/rsync?raw=true"
 
 # Global variables. The should only ever be set by the corresponding
 # configure_XXX functions.
