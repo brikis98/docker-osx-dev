@@ -402,8 +402,9 @@ function inspect_docker_machine {
 #
 function configure_docker_machine {
   DOCKER_HOST_NAME="$DOCKER_MACHINE_NAME"
-  DOCKER_HOST_USER=$(inspect_docker_machine "{{.Driver.SSHUser}}")
-  DOCKER_HOST_IP=$(inspect_docker_machine "{{.Driver.IPAddress}}")
+  # Support < 0.4.1 and >= 0.5.1
+  DOCKER_HOST_USER=$(inspect_docker_machine "{{.Driver.SSHUser}}" || inspect_docker_machine "{{.Driver.Driver.SSHUser}}")
+  DOCKER_HOST_IP=$(inspect_docker_machine "{{.Driver.IPAddress}}" || inspect_docker_machine "{{.Driver.Driver.IPAddress}}")
   # Support both version 0.4.1 (and earlier) and 0.5.0 (and later)
   DOCKER_MACHINE_STORE_PATH=$(inspect_docker_machine "{{.StorePath}}" || inspect_docker_machine "{{.HostOptions.AuthOptions.StorePath}}")
   DOCKER_MACHINE_DRIVER_NAME=$(inspect_docker_machine "{{.DriverName}}")
