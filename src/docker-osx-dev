@@ -422,8 +422,6 @@ function configure_docker_machine {
 # Initializes and starts up the docker-machine VM.
 #
 function init_docker_machine {
-  isrunning=is_docker_machine_running
-  log_info "THING: {isrunning}"
   if ! is_docker_machine_running; then
     log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
     docker-machine start "$DOCKER_MACHINE_NAME"
