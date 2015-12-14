@@ -303,6 +303,37 @@ load test_helper
   assert_success
 }
 
+@test "assert_mutually_exclusive exits on conflicting variables" {
+  FOO=1
+  BAR=2
+  run assert_mutually_exclusive "FOO" "BAR"
+  assert_failure
+}
+
+@test "assert_mutually_exclusive exits on conflicting but empty variables" {
+  FOO=
+  BAR=
+  run assert_mutually_exclusive "FOO" "BAR"
+  assert_failure
+}
+
+@test "assert_mutually_exclusive doesn't exit without any variables" {
+  run assert_mutually_exclusive "FOO" "BAR"
+  assert_success
+}
+
+@test "assert_mutually_exclusive doesn't exit with only the first variable" {
+  FOO=1
+  run assert_mutually_exclusive "FOO" "BAR"
+  assert_success
+}
+
+@test "assert_mutually_exclusive doesn't exit with only the last variable" {
+  BAR=2
+  run assert_mutually_exclusive "FOO" "BAR"
+  assert_success
+}
+
 @test "env_is_defined returns true for USER variable being defined" {
   run env_is_defined "USER"
   assert_success
