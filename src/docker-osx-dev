@@ -481,7 +481,7 @@ function install_rsync_on_docker_host {
 
     if ! $DOCKER_HOST_SSH_COMMAND "type rsync > /dev/null 2>&1" ; then
       log_info "Failed to install rsync using tce-load, falling back to install rsync from pre-built binary in docker-osx-dev GitHub repo"
-      $DOCKER_HOST_SSH_COMMAND "sudo wget -P $BIN_DIR $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync"
+      $DOCKER_HOST_SSH_COMMAND "sudo wget -P $BIN_DIR -O $BIN_DIR/rsync $RSYNC_BINARY_URL && sudo chmod +x $BIN_DIR/rsync"
     fi
   fi
 }
