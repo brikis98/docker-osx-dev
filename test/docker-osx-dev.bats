@@ -304,33 +304,33 @@ load test_helper
 }
 
 @test "assert_mutually_exclusive exits on conflicting variables" {
-  FOO=1
-  BAR=2
-  run assert_mutually_exclusive "FOO" "BAR"
+  local readonly foo=1
+  local readonly bar=2
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
   assert_failure
 }
 
-@test "assert_mutually_exclusive exits on conflicting but empty variables" {
-  FOO=
-  BAR=
-  run assert_mutually_exclusive "FOO" "BAR"
-  assert_failure
+@test "assert_mutually_exclusive doesn't exit on conflicting but empty variables" {
+  local readonly foo=
+  local readonly bar=
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
+  assert_success
 }
 
 @test "assert_mutually_exclusive doesn't exit without any variables" {
-  run assert_mutually_exclusive "FOO" "BAR"
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
   assert_success
 }
 
 @test "assert_mutually_exclusive doesn't exit with only the first variable" {
-  FOO=1
-  run assert_mutually_exclusive "FOO" "BAR"
+  local readonly foo=1
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
   assert_success
 }
 
 @test "assert_mutually_exclusive doesn't exit with only the last variable" {
-  BAR=2
-  run assert_mutually_exclusive "FOO" "BAR"
+  local readonly bar=2
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
   assert_success
 }
 
