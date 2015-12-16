@@ -102,6 +102,30 @@ function assert_non_empty {
 }
 
 #
+# Usage: assert_mutually_exclusive ERROR_MESSAGE VAR1 VAR2 ... VARn
+#
+# Asserts that at most one of VAR1, VAR2, ..., VARn is not empty
+#
+function assert_mutually_exclusive {
+  local readonly error_message=$1
+  shift
+  local found
+  while [[ $# > 0 ]]; do
+    local value=$1
+    if test -n "$value" ; then
+      if test -n "$found" ; then
+        log_error "$error_message"
+        instructions
+        exit 1
+      else
+        found=true
+      fi
+    fi
+    shift
+  done
+}
+
+#
 # Usage: index_of VALUE ARRAY
 #
 # Returns the first index where VALUE appears in ARRAY. If ARRAY does not
@@ -871,6 +895,8 @@ function instructions {
   echo -e "  -e, --exclude-path PATH\t\tExclude PATH while syncing. Behaves identically to rsync's --exclude parameter. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
   echo -e "  -c, --compose-file COMPOSE_FILE\tRead in this docker-compose file and sync any volumes specified in it. Default: $DEFAULT_COMPOSE_FILE"
   echo -e "  -i, --ignore-file IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing (see --exclude). Default: $DEFAULT_IGNORE_FILE"
+  echo -e "      --only-dependencies\t\tDuring install, only install the homebrew dependencies. Useful if homebrew is needs to be run as a different user."
+  echo -e "      --skip-dependencies\t\tDuring install, don't install the homebrew dependencies. Useful if homebrew is needs to be run as a different user."
   echo -e "  -l, --log-level LOG_LEVEL\t\tSpecify the logging level. One of: $LOG_LEVELS. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "  -h, --help\t\t\t\tPrint this help text and exit."
   echo -e
@@ -1089,17 +1115,25 @@ function sync {
 }
 
 #
+# Usage: install [SKIP_DEPENDENCIES] [ONLY_DEPENDENCIES]
+#
 # Installs the docker-osx-dev script, all of its dependencies, and configures
 # the environment.
 #
 function install {
   log_info "Starting install of docker-osx-dev"
-  install_dependencies
-  init_docker_host
-  install_rsync_on_docker_host
-  add_docker_host
-  add_environment_variables
-  print_next_steps
+  local readonly skip_dependencies=$1
+  local readonly only_dependencies=$2
+  if test -z "$skip_dependencies" ; then
+    install_dependencies
+  fi
+  if test -z "$only_dependencies" ; then
+    init_docker_host
+    install_rsync_on_docker_host
+    add_docker_host
+    add_environment_variables
+    print_next_steps
+  fi
 }
 
 #
@@ -1208,6 +1242,12 @@ function handle_command {
         DOCKER_MACHINE_NAME="$2"
         shift
         ;;
+      --only-dependencies)
+        local readonly only_dependencies=true
+        ;;
+      --skip-dependencies)
+        local readonly skip_dependencies=true
+        ;;
       -h|--help)
         instructions
         exit 0
@@ -1221,6 +1261,8 @@ function handle_command {
 
     shift
   done
+
+  assert_mutually_exclusive "--only-dependencies and --skip-dependencies are mutually exclusive" "$only_dependencies" "$skip_dependencies"
 
   case "$cmd" in
     "$SYNC_COMMAND" | "$SYNC_ONLY_COMMAND" | "$WATCH_ONLY_COMMAND")
@@ -1243,7 +1285,7 @@ function handle_command {
       ;;
     "$INSTALL_COMMAND")
       configure_log_level "$log_level"
-      install
+      install "$skip_dependencies" "$only_dependencies"
       ;;
     "$TEST_COMMAND")
       test_mode

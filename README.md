@@ -48,7 +48,7 @@ chmod +x /usr/local/bin/docker-osx-dev
 docker-osx-dev install
 ```
 
-Three notes about the `install` command:
+Four notes about the `install` command:
 
 1. It is idempotent, so if you have some of the dependencies installed already, 
    it will **not** overwrite them.
@@ -57,6 +57,16 @@ Three notes about the `install` command:
    current shell, so make sure not to skip that step!
 3. Once the install completes, you can use the `docker-osx-dev` script to sync 
    files, as described in the next section.
+4. It assumes the user you want to use for development can also run homebrew
+   (eg. write to `/usr/local`). If it doesn't, you need to split the installation
+   in 2 parts: one run as `admin` (the name of the user who can run homebrew),
+   and one as yourself:
+```sh
+su admin
+docker-osx-dev install --only-dependencies
+exit
+docker-osx-dev install --skip-dependencies
+```
 
 # Usage
 

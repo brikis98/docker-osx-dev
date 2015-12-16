@@ -303,6 +303,37 @@ load test_helper
   assert_success
 }
 
+@test "assert_mutually_exclusive exits on conflicting variables" {
+  local readonly foo=1
+  local readonly bar=2
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
+  assert_failure
+}
+
+@test "assert_mutually_exclusive doesn't exit on conflicting but empty variables" {
+  local readonly foo=
+  local readonly bar=
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
+  assert_success
+}
+
+@test "assert_mutually_exclusive doesn't exit without any variables" {
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
+  assert_success
+}
+
+@test "assert_mutually_exclusive doesn't exit with only the first variable" {
+  local readonly foo=1
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
+  assert_success
+}
+
+@test "assert_mutually_exclusive doesn't exit with only the last variable" {
+  local readonly bar=2
+  run assert_mutually_exclusive "error message" "$foo" "$bar"
+  assert_success
+}
+
 @test "env_is_defined returns true for USER variable being defined" {
   run env_is_defined "USER"
   assert_success
