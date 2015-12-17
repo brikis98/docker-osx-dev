@@ -829,10 +829,17 @@ function initial_sync {
   log_info "Performing initial sync of paths: ${paths_to_sync[@]}"
 
   local dirs_to_create=()
+  local parent_dirs=()
+  local base_names=()
   local path=""
+  local parent_dir=""
+  local base_name=""
 
   for path in "${paths_to_sync[@]}"; do
-    local readonly parent_dir=$(dirname "$path")
+    parent_dir=$(dirname "$path")
+    parent_dirs+=("$parent_dir")
+    base_name=$(basename "$path")
+    base_names+=("$base_name")
     if [[ "$parent_dir" != "/" ]]; then
       dirs_to_create+=("$parent_dir")
     fi
@@ -845,6 +852,21 @@ function initial_sync {
 
   log_debug "Creating parent directories in Docker VM: $ssh_cmd"
   $DOCKER_HOST_SSH_COMMAND "$ssh_cmd"
+
+  local readonly excludes=($EXCLUDES)
+  exclude_flags=${excludes[@]/#/--exclude }
+  local readonly includes=($INCLUDES)
+  include_flags=${includes[@]/#/--include }
+  for key in "${!parent_dirs[@]}"; do
+    parent_dir=${parent_dirs[$key]}
+    base_name=${base_names[$key]}
+    if $DOCKER_HOST_SSH_COMMAND "test -e '$parent_dir/$base_name'" > /dev/null 2>&1; then
+      log_debug "skipped tar for $parent_dir/$base_name"
+    else
+      log_info "Initial sync using tar for $parent_dir/$base_name"
+      tar -cC "$parent_dir" $include_flags $exclude_flags "$base_name" | $DOCKER_HOST_SSH_COMMAND "tar -xC '$parent_dir'"
+    fi
+  done
 
   log_debug "Starting sync paths: $paths_to_sync"
   do_sync "${paths_to_sync[@]}"
