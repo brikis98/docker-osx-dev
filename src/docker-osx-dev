@@ -819,27 +819,18 @@ function do_sync {
 }
 
 #
-# Usage: initial_sync PATHS
+# Usage: create_sync_directories [PATHS ...]
 #
-# Perform the initial sync of PATHS to the Boot2Docker VM, including setting up
-# all necessary parent directories and permissions.
-#
-function initial_sync {
-  local readonly paths_to_sync=($PATHS_TO_SYNC)
-  log_info "Performing initial sync of paths: ${paths_to_sync[@]}"
+# Sets up all necessary parent directories and permissions for PATHS in the
+# Boot2Docker VM.
+function create_sync_directories {
+  local readonly paths_to_sync=("$@")
 
   local dirs_to_create=()
-  local parent_dirs=()
-  local base_names=()
   local path=""
-  local parent_dir=""
-  local base_name=""
 
   for path in "${paths_to_sync[@]}"; do
-    parent_dir=$(dirname "$path")
-    parent_dirs+=("$parent_dir")
-    base_name=$(basename "$path")
-    base_names+=("$base_name")
+    local readonly parent_dir=$(dirname "$path")
     if [[ "$parent_dir" != "/" ]]; then
       dirs_to_create+=("$parent_dir")
     fi
@@ -852,14 +843,27 @@ function initial_sync {
 
   log_debug "Creating parent directories in Docker VM: $ssh_cmd"
   $DOCKER_HOST_SSH_COMMAND "$ssh_cmd"
+}
 
+#
+# Usage: tar_sync [PATHS ...]
+#
+# Use tar to set up the initial sync of PATHS in the Boot2Docker VM, which
+# is faster than letting rsync do it.
+function tar_sync {
+  local readonly paths_to_sync=("$@")
+
+  local path=""
+  local parent_dir=""
+  local base_name=""
   local readonly excludes=($EXCLUDES)
   local readonly exclude_flags=${excludes[@]/#/--exclude }
   local readonly includes=($INCLUDES)
   local readonly include_flags=${includes[@]/#/--include }
-  for key in "${!parent_dirs[@]}"; do
-    parent_dir=${parent_dirs[$key]}
-    base_name=${base_names[$key]}
+
+  for path in "${paths_to_sync[@]}"; do
+    parent_dir=$(dirname "$path")
+    base_name=$(basename "$path")
     if $DOCKER_HOST_SSH_COMMAND "test -e '$parent_dir/$base_name'" > /dev/null 2>&1; then
       log_debug "skipped tar for $parent_dir/$base_name"
     else
@@ -867,6 +871,21 @@ function initial_sync {
       tar -cC "$parent_dir" $include_flags $exclude_flags "$base_name" | $DOCKER_HOST_SSH_COMMAND "tar -xC '$parent_dir'"
     fi
   done
+}
+
+#
+# Usage: initial_sync
+#
+# Perform the initial sync of PATHS_TO_SYNC to the Boot2Docker VM, including
+# setting up all necessary parent directories and permissions.
+#
+function initial_sync {
+  local readonly paths_to_sync=($PATHS_TO_SYNC)
+  log_info "Performing initial sync of paths: ${paths_to_sync[@]}"
+
+  create_sync_directories "${paths_to_sync[@]}"
+
+  tar_sync "${paths_to_sync[@]}"
 
   log_debug "Starting sync paths: $paths_to_sync"
   do_sync "${paths_to_sync[@]}"
