@@ -854,9 +854,9 @@ function initial_sync {
   $DOCKER_HOST_SSH_COMMAND "$ssh_cmd"
 
   local readonly excludes=($EXCLUDES)
-  exclude_flags=${excludes[@]/#/--exclude }
+  local readonly exclude_flags=${excludes[@]/#/--exclude }
   local readonly includes=($INCLUDES)
-  include_flags=${includes[@]/#/--include }
+  local readonly include_flags=${includes[@]/#/--include }
   for key in "${!parent_dirs[@]}"; do
     parent_dir=${parent_dirs[$key]}
     base_name=${base_names[$key]}
