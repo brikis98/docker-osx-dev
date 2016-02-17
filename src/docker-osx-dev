@@ -64,6 +64,7 @@ DOCKER_HOST_USER=""
 DOCKER_HOST_SSH_URL=""
 DOCKER_HOST_SSH_KEY=""
 DOCKER_HOST_SSH_COMMAND=""
+COMMAND_TO_RUN=""
 
 
 ################################################################################
@@ -886,6 +887,7 @@ function instructions {
   echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
   echo -e
   echo -e "Options:"
+  echo -e "  -r, --run-command command\t\tWhen supplied runs the command after script finished"
   echo -e "  -m, --machine-name name\t\tWhen suplied syncs with the given docker machine host"
   echo -e "  -s, --sync-path PATH\t\t\tSync PATH to the Docker Machine VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
   echo -e "  -e, --exclude-path PATH\t\tExclude PATH while syncing. Behaves identically to rsync's --exclude parameter. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
@@ -1109,6 +1111,12 @@ function sync {
   initial_sync
 }
 
+function callback {
+  if test -z "$callback_command" ; then
+    eval "$callback_command"
+  fi
+}
+
 #
 # Usage: install [SKIP_DEPENDENCIES] [ONLY_DEPENDENCIES]
 #
@@ -1232,6 +1240,11 @@ function handle_command {
         log_level="$2"
         shift
         ;;
+      -r|--run)
+        assert_valid_arg "$2" "$key"
+        callback_command="$2"
+        shift
+        ;;
       -m|--machine-name)
         assert_valid_arg "$2" "$key"
         DOCKER_MACHINE_NAME="$2"
@@ -1269,12 +1282,15 @@ function handle_command {
       "$SYNC_COMMAND")
         sync
         watch
+        callback
         ;;
       "$SYNC_ONLY_COMMAND")
         sync
+        callback
         ;;
       "$WATCH_ONLY_COMMAND")
         watch
+        callback
         ;;
       esac
       ;;
