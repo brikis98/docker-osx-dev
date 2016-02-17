@@ -23,6 +23,7 @@ readonly LOG_LEVELS="$LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL
 readonly DEFAULT_LOG_LEVEL="$LOG_LEVEL_INFO"
 
 # Environment variable file constants
+readonly FISH_CONFIG="$HOME/.config/fish/config.fish"
 readonly BASH_PROFILE="$HOME/.bash_profile"
 readonly BASH_RC="$HOME/.bashrc"
 readonly ZSH_RC="$HOME/.zshrc"
@@ -539,6 +540,8 @@ function env_is_defined {
 #   Returns: ~/.bash_profile
 #
 function get_env_file {
+  if [[ -f "$FISH_CONFIG" ]]; then
+    echo "$FISH_CONFIG"
   if [[ -f "$BASH_RC" ]]; then
     echo "$BASH_RC"
   elif [[ -f "$ZSH_RC" ]]; then
@@ -715,7 +718,6 @@ function check_homebrew {
 function install_dependencies {
   brew_update
 
-  brew_install "caskroom/cask/brew-cask" "Cask" "brew cask" false
   brew_install "boot2docker" "Boot2Docker" "boot2docker" false
   brew_install "docker-compose" "Docker Compose" "docker-compose" false
   brew_install "docker-machine" "Docker Machine" "docker-machine" false
