@@ -49,7 +49,7 @@ readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
 readonly DEFAULT_PATHS_TO_SYNC="."
 readonly DEFAULT_EXCLUDES=".git"
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
-readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file -l"
+readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n' --delete --omit-dir-times --inplace --whole-file -l"
 
 # docker-osx-dev repo constants
 readonly RSYNC_BINARY_URL="https://github.com/devotox/docker-osx-dev/blob/master/lib/rsync?raw=true"
