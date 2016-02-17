@@ -542,7 +542,7 @@ function env_is_defined {
 function get_env_file {
   if [[ -f "$FISH_CONFIG" ]]; then
     echo "$FISH_CONFIG"
-  if [[ -f "$BASH_RC" ]]; then
+  elif [[ -f "$BASH_RC" ]]; then
     echo "$BASH_RC"
   elif [[ -f "$ZSH_RC" ]]; then
     echo "$ZSH_RC"
