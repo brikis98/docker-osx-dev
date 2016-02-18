@@ -23,6 +23,7 @@ readonly LOG_LEVELS="$LOG_LEVEL_DEBUG $LOG_LEVEL_INFO $LOG_LEVEL_WARN $LOG_LEVEL
 readonly DEFAULT_LOG_LEVEL="$LOG_LEVEL_INFO"
 
 # Environment variable file constants
+readonly FISH_CONFIG="$HOME/.config/fish/config.fish"
 readonly BASH_PROFILE="$HOME/.bash_profile"
 readonly BASH_RC="$HOME/.bashrc"
 readonly ZSH_RC="$HOME/.zshrc"
@@ -39,7 +40,7 @@ readonly DEFAULT_COMMAND="$SYNC_COMMAND"
 readonly BIN_DIR="/usr/local/bin"
 
 # docker host constants
-readonly BOOT2DOCKER_USER="docker"
+readonly DOCKER_MACHINE_USER="docker"
 
 # docker-compose constants
 readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
@@ -48,10 +49,10 @@ readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
 readonly DEFAULT_PATHS_TO_SYNC="."
 readonly DEFAULT_EXCLUDES=".git"
 readonly DEFAULT_IGNORE_FILE=".dockerignore"
-readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file -l"
+readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n' --delete --omit-dir-times --inplace --whole-file -l"
 
 # docker-osx-dev repo constants
-readonly RSYNC_BINARY_URL="https://github.com/brikis98/docker-osx-dev/blob/master/lib/rsync?raw=true"
+readonly RSYNC_BINARY_URL="https://github.com/devotox/docker-osx-dev/blob/master/lib/rsync?raw=true"
 
 # Global variables. The should only ever be set by the corresponding
 # configure_XXX functions.
@@ -63,6 +64,7 @@ DOCKER_HOST_USER=""
 DOCKER_HOST_SSH_URL=""
 DOCKER_HOST_SSH_KEY=""
 DOCKER_HOST_SSH_COMMAND=""
+COMMAND_TO_RUN=""
 
 
 ################################################################################
@@ -304,24 +306,14 @@ function configure_log_level {
 }
 
 ################################################################################
-# Boot2Docker manipulation
+# virtualbox manipulation
 ################################################################################
 
-#
-# Configures the Boot2Docker SSH key by looking into the Boot2Docker config
-#
-function configure_boot2docker {
-  test -n "$DOCKER_HOST_NAME" || DOCKER_HOST_NAME="dockerhost"
-  DOCKER_HOST_SSH_KEY=$(boot2docker cfg | grep "^SSHKey = " | sed -e 's/^SSHKey = "\(.*\)"/\1/')
-  DOCKER_HOST_USER="$BOOT2DOCKER_USER"
-  DOCKER_HOST_SSH_URL="$BOOT2DOCKER_USER@$DOCKER_HOST_NAME"
-  DOCKER_HOST_SSH_COMMAND="boot2docker ssh"
-}
 
 #
 # Usage: find_vboxsf_mounted_folders
 #
-# Returns mounted volumes with vboxsf-type in boot2docker instance.
+# Returns mounted volumes with vboxsf-type in docker_machine instance.
 #
 function find_vboxsf_mounted_folders {
   $DOCKER_HOST_SSH_COMMAND mount | grep 'type vboxsf' | awk '{print $3}'
@@ -330,7 +322,7 @@ function find_vboxsf_mounted_folders {
 #
 # Usage: umount_vboxsf_mounted_folder SHARED_FOLDERS
 #
-# Remove the VirtualBox shared folder from the boot2docker VM.
+# Remove the VirtualBox shared folder from the docker_machine VM.
 # SHARED_FOLDERS should be the output of the
 # find_vboxsf_mounted_folders function.
 #
@@ -352,56 +344,9 @@ function check_for_shared_folders {
   local readonly vbox_shared_folders=$(find_vboxsf_mounted_folders)
 
   if [[ ! -z "$vbox_shared_folders" ]]; then
-    log_error "Found VirtualBox shared folders on your Boot2Docker VM. These may void any performance benefits from using docker-osx-dev:\n$vbox_shared_folders"
-    log_instructions "Would you like this script to remove them?"
-
-    local choice=""
-    select choice in "yes" "no"; do
-      case $REPLY in
-        y|Y|yes|Yes )
-          umount_vboxsf_mounted_folder "$vbox_shared_folders"
-          break
-          ;;
-        n|N|no|No )
-          log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting."
-          exit 1
-          ;;
-      esac
-    done
+    log_error "Found VirtualBox shared folders on your Docker Machine VM. These may void any performance benefits from using docker-osx-dev:\n$vbox_shared_folders"
+    umount_vboxsf_mounted_folder "$vbox_shared_folders"
   fi
-}
-
-#
-# Returns true iff the Boot2Docker VM is initialized
-#
-function is_boot2docker_initialized {
-  boot2docker status >/dev/null 2>&1
-}
-
-#
-# Returns true iff the Boot2Docker VM is running
-#
-function is_boot2docker_running {
-  local readonly status=$(boot2docker status 2>&1)
-  test "$status" = "running"
-}
-
-#
-# Initializes and starts up the Boot2Docker VM.
-#
-function init_boot2docker {
-  if ! is_boot2docker_initialized; then
-    log_info "Initializing Boot2Docker VM"
-    boot2docker init
-  fi
-
-  if ! is_boot2docker_running; then
-    log_info "Starting Boot2Docker VM"
-    boot2docker start --vbox-share=disable
-  fi
-
-  configure_boot2docker
-  check_for_shared_folders
 }
 
 ################################################################################
@@ -441,7 +386,6 @@ function configure_docker_machine {
     # 0.4.1 returns StorePath as /machines/dev
     DOCKER_HOST_SSH_KEY="$DOCKER_MACHINE_STORE_PATH/id_rsa"
   fi
-
   if [[ $CURRENT_LOG_LEVEL == "DEBUG" ]]; then
     DOCKER_HOST_SSH_COMMAND="docker-machine -D ssh $DOCKER_MACHINE_NAME"
   else
@@ -457,8 +401,10 @@ function init_docker_machine {
     log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
     docker-machine start "$DOCKER_MACHINE_NAME"
   fi
+
   eval "$(docker-machine env --shell bash $DOCKER_MACHINE_NAME)"
   configure_docker_machine
+
   if [[ $DOCKER_MACHINE_DRIVER_NAME == "virtualbox" ]]; then
     check_for_shared_folders
   fi
@@ -479,20 +425,20 @@ function is_docker_machine_running {
 
 #
 # Initializes a docker host
-# Initializes boot2docker, unless DOCKER_MACHINE_NAME is defined
 #
 function init_docker_host {
   if [[ -n "$DOCKER_MACHINE_NAME" ]]; then
     init_docker_machine
   else
-    init_boot2docker
+    log_error "Start a VM with docker-machine start [machine-name]; eval (docker-machine env [docker-machine]) before running this command"
+    exit 1
   fi
 }
 
 #
-# Installs rsync on the Boot2Docker VM, unless it's already installed.
+# Installs rsync on the Docker Machine VM, unless it's already installed.
 # If the main repository is down, rsync will be installed from a mirror
-# If the mirror is down, download rsync binary and place in Boot2Docker VM
+# If the mirror is down, download rsync binary and place in Docker Machine VM
 #
 function install_rsync_on_docker_host {
   log_info "Installing rsync in the Docker Host image"
@@ -539,7 +485,9 @@ function env_is_defined {
 #   Returns: ~/.bash_profile
 #
 function get_env_file {
-  if [[ -f "$BASH_RC" ]]; then
+  if [[ -f "$FISH_CONFIG" ]]; then
+    echo "$FISH_CONFIG"
+  elif [[ -f "$BASH_RC" ]]; then
     echo "$BASH_RC"
   elif [[ -f "$ZSH_RC" ]]; then
     echo "$ZSH_RC"
@@ -549,33 +497,34 @@ function get_env_file {
 }
 
 #
-# Adds environment variables necessary for running Boot2Docker
+# Adds environment variables necessary for running Docker Machine
 #
 function add_environment_variables {
   if [ -z "$DOCKER_MACHINE_NAME" ]; then
     local readonly env_file=$(get_env_file)
-    local readonly boot2docker_exports=$(boot2docker shellinit 2>/dev/null)
-    local readonly exports_to_add_to_env_file=$(determine_boot2docker_exports_for_env_file "$boot2docker_exports")
+    local readonly docker_machine_exports=$(docker_machine shellinit 2>/dev/null)
+    local readonly exports_to_add_to_env_file=$(determine_docker_machine_exports_for_env_file "$docker_machine_exports")
 
     if [[ ! -z "$exports_to_add_to_env_file" ]]; then
       log_info "Adding new environment variables to $env_file: $exports_to_add_to_env_file"
+      echo "Environment Variables \n" $exports_to_add_to_env_file
       echo -e "$exports_to_add_to_env_file" >> "$env_file"
       log_instructions "To pick up important new environment variables in the current shell, run:\n\tsource $env_file"
     else
-      log_warn "All Boot2Docker environment variables already defined, will not overwrite"
+      log_warn "All Docker Machine environment variables already defined, will not overwrite"
     fi
   fi
 }
 
 #
-# Usage: determine_boot2docker_exports_for_env_file BOOT2DOCKER_SHELLINIT_EXPORTS
+# Usage: determine_docker_machine_exports_for_env_file DOCKER_MACHINE_SHELLINIT_EXPORTS
 #
-# Parses BOOT2DOCKER_SHELLINIT_EXPORTS, which should be the output of the
-# boot2docker shelinit command, and returns a string of the exports that are
+# Parses DOCKER_MACHINE_SHELLINIT_EXPORTS, which should be the output of the
+# docker_machine shelinit command, and returns a string of the exports that are
 # not already in the current environment.
 #
-function determine_boot2docker_exports_for_env_file {
-  local readonly boot2docker_exports="$1"
+function determine_docker_machine_exports_for_env_file {
+  local readonly docker_machine_exports="$1"
 
   local exports_to_add_to_env_file=()
   local export_line=""
@@ -585,13 +534,13 @@ function determine_boot2docker_exports_for_env_file {
       local readonly var_name=$(echo "$export_line" | sed -ne 's/export \(.*\)=.*/\1/p')
 
       if [[ -z "$var_name" ]]; then
-        log_error "Unexpected entry from boot2docker shellinit: $export_line"
+        log_error "Unexpected entry from docker_machine shellinit: $export_line"
         exit 1
       elif ! env_is_defined "$var_name"; then
         exports_to_add_to_env_file+=("$export_line")
       fi
     fi
-  done <<< "$boot2docker_exports"
+  done <<< "$docker_machine_exports"
 
   if [[ "${#exports_to_add_to_env_file[@]}" -gt 0 ]]; then
     local exports_as_string=$(join "\n" "${exports_to_add_to_env_file[@]}")
@@ -608,7 +557,7 @@ function add_docker_host {
   if grep -q "^[^#]*$DOCKER_HOST_NAME" "$HOSTS_FILE" ; then
     log_warn "$HOSTS_FILE already contains $DOCKER_HOST_NAME, will not overwrite"
   else
-    DOCKER_HOST_IP=${DOCKER_HOST_IP-$(boot2docker ip)}
+    DOCKER_HOST_IP=${DOCKER_HOST_IP-$(docker_machine ip)}
     local readonly host_entry="\n$DOCKER_HOST_IP $DOCKER_HOST_NAME"
 
     log_info "Adding $DOCKER_HOST_NAME entry to $HOSTS_FILE so you can use http://$DOCKER_HOST_NAME URLs for testing"
@@ -642,8 +591,11 @@ function check_prerequisites {
 function brew_update {
   log_info "Updating HomeBrew"
   if ! type brew > /dev/null 2>&1 ; then
-    log_warn "HomeBrew not found, will not attempt to update it"
+    log_warn "HomeBrew not found, installing..."
+    ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
   else
+    log_info "HomeBrew found, updating..."
+    brew uninstall --force brew-cask
     brew update
   fi
 }
@@ -714,13 +666,13 @@ function check_homebrew {
 #
 function install_dependencies {
   brew_update
-
-  brew_install "caskroom/cask/brew-cask" "Cask" "brew cask" false
-  brew_install "boot2docker" "Boot2Docker" "boot2docker" false
-  brew_install "docker-compose" "Docker Compose" "docker-compose" false
-  brew_install "docker-machine" "Docker Machine" "docker-machine" false
+  
   brew_install "fswatch" "fswatch" "fswatch" false
   brew_install "coreutils" "GNU core utilities" "greadlink" false
+
+  brew_install "docker-machine-parallels" "Docker Machine Parallels" "docker-machine" false
+  brew_install "dockertoolbox" "Docker Toolbox" "docker" true
+  brew_install "virtualbox" "Virtual Box" "virtualbox" true
 }
 
 #
@@ -729,9 +681,10 @@ function install_dependencies {
 function print_next_steps {
   log_info "docker-osx-dev setup has completed successfully."
   log_instructions "You can now start file syncing using the docker-osx-dev" \
-    "script and run Docker containers using docker run. Example:\n\t" \
+    "script and run Docker containers using docker compose or docker run. Example:\n\t" \
+    "> docker-machine start [docker-machine]\n\t" \
     "> docker-osx-dev\n\t" \
-    '> docker run -v $(pwd):/src some-docker-container'
+    "> docker-compose up OR docker run -v $(pwd):/src [docker-container]"
 }
 
 ################################################################################
@@ -765,12 +718,12 @@ function find_path_to_sync_parent {
 #
 # Usage: rsync PATH
 #
-# Uses rsync to sync PATH to the same PATH on the Boot2Docker VM.
+# Uses rsync to sync PATH to the same PATH on the Docker Machine VM.
 #
 # Examples:
 #
 # rsync /foo
-#   Result: the contents of /foo are rsync'ed to /foo on the Boot2Docker VM
+#   Result: the contents of /foo are rsync'ed to /foo on the Docker Machine VM
 #
 function do_rsync {
   local readonly path="$1"
@@ -801,13 +754,13 @@ function do_rsync {
 #
 # Usage: do_sync [PATHS ...]
 #
-# Uses rsync to sync PATHS to the Boot2Docker VM. If one of the values in PATHS
+# Uses rsync to sync PATHS to the Docker Machine VM. If one of the values in PATHS
 # is not valid (e.g. doesn't exist), it will be ignored.
 #
 # Examples:
 #
 # rsync /foo /bar
-#   Result: /foo and /bar are rsync'ed to the Boot2DockerVM
+#   Result: /foo and /bar are rsync'ed to the Docker MachineVM
 #
 function do_sync {
   local readonly paths_to_sync=("$@")
@@ -822,7 +775,7 @@ function do_sync {
 # Usage: create_sync_directories [PATHS ...]
 #
 # Sets up all necessary parent directories and permissions for PATHS in the
-# Boot2Docker VM.
+# Docker Machine VM.
 function create_sync_directories {
   local readonly paths_to_sync=("$@")
 
@@ -848,7 +801,7 @@ function create_sync_directories {
 #
 # Usage: tar_sync [PATHS ...]
 #
-# Use tar to set up the initial sync of PATHS in the Boot2Docker VM, which
+# Use tar to set up the initial sync of PATHS in the Docker Machine VM, which
 # is faster than letting rsync do it.
 function tar_sync {
   local readonly paths_to_sync=("$@")
@@ -856,16 +809,19 @@ function tar_sync {
   local path=""
   local parent_dir=""
   local base_name=""
+
   local readonly excludes=($EXCLUDES)
   local readonly exclude_flags=${excludes[@]/#/--exclude }
+
   local readonly includes=($INCLUDES)
   local readonly include_flags=${includes[@]/#/--include }
 
   for path in "${paths_to_sync[@]}"; do
     parent_dir=$(dirname "$path")
     base_name=$(basename "$path")
+
     if $DOCKER_HOST_SSH_COMMAND "test -e '$parent_dir/$base_name'" > /dev/null 2>&1; then
-      log_debug "skipped tar for $parent_dir/$base_name"
+      log_debug "Skipped tar for $parent_dir/$base_name"
     else
       log_info "Initial sync using tar for $parent_dir/$base_name"
       tar -cC "$parent_dir" $include_flags $exclude_flags "$base_name" | $DOCKER_HOST_SSH_COMMAND "tar -xC '$parent_dir'"
@@ -876,7 +832,7 @@ function tar_sync {
 #
 # Usage: initial_sync
 #
-# Perform the initial sync of PATHS_TO_SYNC to the Boot2Docker VM, including
+# Perform the initial sync of PATHS_TO_SYNC to the Docker Machine VM, including
 # setting up all necessary parent directories and permissions.
 #
 function initial_sync {
@@ -904,6 +860,7 @@ function watch {
   local readonly fswatch_cmd="fswatch -0 $PATHS_TO_SYNC"
   log_debug "$fswatch_cmd"
 
+  callback
   local file=""
   eval "$fswatch_cmd" | while read -d "" file
   do
@@ -931,8 +888,9 @@ function instructions {
   echo -e "  $INSTALL_COMMAND\tInstall docker-osx-dev and all of its dependencies."
   echo -e
   echo -e "Options:"
+  echo -e "  -r, --run-command command\t\tWhen supplied runs the command after script finished"
   echo -e "  -m, --machine-name name\t\tWhen suplied syncs with the given docker machine host"
-  echo -e "  -s, --sync-path PATH\t\t\tSync PATH to the Boot2Docker VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
+  echo -e "  -s, --sync-path PATH\t\t\tSync PATH to the Docker Machine VM. No wildcards allowed. May be specified multiple times. Default: $DEFAULT_PATHS_TO_SYNC"
   echo -e "  -e, --exclude-path PATH\t\tExclude PATH while syncing. Behaves identically to rsync's --exclude parameter. May be specified multiple times. Default: $DEFAULT_EXCLUDES"
   echo -e "  -c, --compose-file COMPOSE_FILE\tRead in this docker-compose file and sync any volumes specified in it. Default: $DEFAULT_COMPOSE_FILE"
   echo -e "  -i, --ignore-file IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing (see --exclude). Default: $DEFAULT_IGNORE_FILE"
@@ -943,13 +901,15 @@ function instructions {
   echo -e
   echo -e "Overview:"
   echo -e
-  echo -e "docker-osx-dev is a script you can use to sync folders to the Boot2Docker (or docker-machine) VM using rsync."
+  echo -e "docker-osx-dev is a script you can use to sync folders to the Docker Machine (or docker-machine) VM using rsync."
   echo -e "It's an alternative to using VirtualBox shared folders, which are agonizingly slow and break file watchers."
   echo -e "For more info, see: https://github.com/brikis98/docker-osx-dev"
   echo -e
   echo -e "Example workflow:"
+  echo -e "  > eval (docker-machine env [docker-machine]"
+  echo -e "  > docker-machine start [docker-machine]"
   echo -e "  > docker-osx-dev -s /host-folder"
-  echo -e "  > docker run -v /host-folder:/guest-folder some-docker-image"
+  echo -e "  > docker-compose up OR docker run -v $(pwd):/src [docker-container]"
   echo -e
   echo -e "  After you run the commands above, /host-folder on OS X will be kept in sync with /guest-folder in some-docker-image."
   echo -e
@@ -1041,14 +1001,13 @@ function load_include_paths {
 #
 # Usage: configure_paths_to_sync COMPOSE_FILE [PATHS_FROM_CMD_LINE ...]
 #
-# Set \the paths that should be synced to the Boot2Docker VM. These
+# Set \the paths that should be synced to the Docker Machine VM. These
 # paths will be read from the Docker Compose file COMPOSE_FILE as well as paths
 # specified via the command line as PATHS_FROM_CMD_LINE. If no paths are found
 # in either place, this function will fall back to DEFAULT_PATHS_TO_SYNC.
 #
 function configure_paths_to_sync {
-  local readonly compose_file="$1"
-  shift
+  local readonly compose_file="$1"; shift
   local readonly paths_to_sync_from_cmd_line=("$@")
   local readonly paths_to_sync_from_compose_file=($(load_paths_from_docker_compose "$compose_file"))
 
@@ -1082,7 +1041,7 @@ function configure_paths_to_sync {
 #
 # Usage: configure_excludes IGNORE_FILE [EXCLUDE_PATHS_FROM_CMD_LINE ...]
 #
-# Sets the paths that should be excluded when syncing files to the Boot2Docker
+# Sets the paths that should be excluded when syncing files to the Docker Machine
 # VM. EXCLUDE_PATHS_FROM_CMD_LINE are paths specified as command line arguments
 # and will take precedence. If none are specified, this function will try to
 # read the ignore file (see load_exclude_paths) at IGNORE_FILE and use those
@@ -1090,8 +1049,7 @@ function configure_paths_to_sync {
 # DEFAULT_EXCLUDES.
 #
 function configure_excludes {
-  local readonly ignore_file="$1"
-  shift
+  local readonly ignore_file="$1"; shift
   local readonly excludes_from_cmd_line=("$@")
   local readonly excludes_from_ignore_file=($(load_exclude_paths "$ignore_file"))
 
@@ -1118,15 +1076,14 @@ function configure_excludes {
 #
 # Usage: configure_includes IGNORE_FILE [INCLUDE_PATHS_FROM_CMD_LINE ...]
 #
-# Sets the paths that should be included when syncing files to the Boot2Docker
+# Sets the paths that should be included when syncing files to the Docker Machine
 # VM. INCLUDE_PATHS_FROM_CMD_LINE are paths specified as command line arguments
 # and will take precedence. If none are specified, this function will try to
 # read the ignore file (see load_include_paths) at IGNORE_FILE and use those
 # entries as includes.
 #
 function configure_includes {
-  local readonly ignore_file="$1"
-  shift
+  local readonly ignore_file="$1"; shift
   local readonly includes_from_cmd_line=("$@")
   local readonly includes_from_ignore_file=($(load_include_paths "$ignore_file"))
 
@@ -1153,6 +1110,13 @@ function sync {
   init_docker_host
   install_rsync_on_docker_host
   initial_sync
+}
+
+function callback {
+  if test -n "$callback_command" ; then
+    log_info "Running Callback: $callback_command"
+    eval $callback_command
+  fi
 }
 
 #
@@ -1278,6 +1242,11 @@ function handle_command {
         log_level="$2"
         shift
         ;;
+      -r|--run-command)
+        assert_valid_arg "$2" "$key"
+        callback_command="$2"
+        shift
+        ;;
       -m|--machine-name)
         assert_valid_arg "$2" "$key"
         DOCKER_MACHINE_NAME="$2"
@@ -1318,6 +1287,7 @@ function handle_command {
         ;;
       "$SYNC_ONLY_COMMAND")
         sync
+        callback
         ;;
       "$WATCH_ONLY_COMMAND")
         watch
