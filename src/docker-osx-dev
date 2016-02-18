@@ -860,6 +860,7 @@ function watch {
   local readonly fswatch_cmd="fswatch -0 $PATHS_TO_SYNC"
   log_debug "$fswatch_cmd"
 
+  callback
   local file=""
   eval "$fswatch_cmd" | while read -d "" file
   do
@@ -1112,8 +1113,9 @@ function sync {
 }
 
 function callback {
-  if test -z "$callback_command" ; then
-    eval "$callback_command"
+  if test -n "$callback_command" ; then
+    log_info "Running Callback: $callback_command"
+    eval $callback_command
   fi
 }
 
@@ -1240,7 +1242,7 @@ function handle_command {
         log_level="$2"
         shift
         ;;
-      -r|--run)
+      -r|--run-command)
         assert_valid_arg "$2" "$key"
         callback_command="$2"
         shift
@@ -1282,7 +1284,6 @@ function handle_command {
       "$SYNC_COMMAND")
         sync
         watch
-        callback
         ;;
       "$SYNC_ONLY_COMMAND")
         sync
@@ -1290,7 +1291,6 @@ function handle_command {
         ;;
       "$WATCH_ONLY_COMMAND")
         watch
-        callback
         ;;
       esac
       ;;
