@@ -63,6 +63,7 @@ DOCKER_HOST_USER=""
 DOCKER_HOST_SSH_URL=""
 DOCKER_HOST_SSH_KEY=""
 DOCKER_HOST_SSH_COMMAND=""
+REMOVE_SHARED_FOLDERS=""
 
 
 ################################################################################
@@ -353,22 +354,27 @@ function check_for_shared_folders {
 
   if [[ ! -z "$vbox_shared_folders" ]]; then
     log_error "Found VirtualBox shared folders on your Boot2Docker VM. These may void any performance benefits from using docker-osx-dev:\n$vbox_shared_folders"
-    log_instructions "Would you like this script to remove them?"
 
-    local choice=""
-    select choice in "yes" "no"; do
-      case $REPLY in
-        y|Y|yes|Yes )
-          umount_vboxsf_mounted_folder "$vbox_shared_folders"
-          break
-          ;;
-        n|N|no|No )
-          log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting."
-          exit 1
-          ;;
-      esac
-    done
-  fi
+    if [[ "$REMOVE_SHARED_FOLDERS" = true ]]; then
+        log_info "Autoremoving shared folders."
+        umount_vboxsf_mounted_folder "$vbox_shared_folders"
+    else
+      log_instructions "Would you like this script to remove them?"
+      local choice=""
+      select choice in "yes" "no"; do
+        case $REPLY in
+          y|Y|yes|Yes )
+            umount_vboxsf_mounted_folder "$vbox_shared_folders"
+            break
+            ;;
+          n|N|no|No )
+            log_instructions "Please remove the VirtualBox shares yourself and re-run this script. Exiting."
+            exit 1
+            ;;
+        esac
+      done
+    fi
+    fi
 }
 
 #
@@ -938,6 +944,7 @@ function instructions {
   echo -e "  -i, --ignore-file IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing (see --exclude). Default: $DEFAULT_IGNORE_FILE"
   echo -e "      --only-dependencies\t\tDuring install, only install the homebrew dependencies. Useful if homebrew is needs to be run as a different user."
   echo -e "      --skip-dependencies\t\tDuring install, don't install the homebrew dependencies. Useful if homebrew is needs to be run as a different user."
+  echo -e "  -r, --remove-shared-folders \t\tAutomatically Virtualbox remove shared folders. Shared folders may void any performance benefits from using docker-osx-dev"
   echo -e "  -l, --log-level LOG_LEVEL\t\tSpecify the logging level. One of: $LOG_LEVELS. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "  -h, --help\t\t\t\tPrint this help text and exit."
   echo -e
@@ -1146,6 +1153,18 @@ function configure_includes {
 }
 
 #
+# Usage: configure_autoremove_shared_folders REMOVE
+#
+# Set the REMOVE_SHARED_FOLDERS level to REMOVE.
+#
+function configure_autoremove_shared_folders {
+  local readonly remove_shared_folders="$1";
+  if [[ "$remove_shared_folders" = true ]]; then
+      REMOVE_SHARED_FOLDERS=true
+  fi
+}
+
+#
 # Runs the docker-osx-dev script to to sync files.
 #
 function sync {
@@ -1283,6 +1302,9 @@ function handle_command {
         DOCKER_MACHINE_NAME="$2"
         shift
         ;;
+      -r|--remove-shared-folders)
+        local readonly autoremove_remove_shared_folders=true
+        ;;
       --only-dependencies)
         local readonly only_dependencies=true
         ;;
@@ -1311,6 +1333,7 @@ function handle_command {
       configure_paths_to_sync "$docker_compose_file" "${paths_to_sync[@]}"
       configure_excludes "$ignore_file" "${excludes[@]}"
       configure_includes "$ignore_file" "${includes[@]}"
+      configure_autoremove_shared_folders $autoremove_remove_shared_folders
       case "$cmd" in
       "$SYNC_COMMAND")
         sync
@@ -1326,6 +1349,7 @@ function handle_command {
       ;;
     "$INSTALL_COMMAND")
       configure_log_level "$log_level"
+      configure_autoremove_shared_folders $autoremove_remove_shared_folders
       install "$skip_dependencies" "$only_dependencies"
       ;;
     "$TEST_COMMAND")
