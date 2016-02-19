@@ -1155,7 +1155,7 @@ function configure_includes {
 # Runs the docker-osx-dev script to to sync files.
 #
 function sync {
-  local remove_shared_folders=$1
+  local readonly remove_shared_folders=$1
 
   log_info "Starting docker-osx-dev file syncing"
   init_docker_host
@@ -1173,7 +1173,7 @@ function install {
   log_info "Starting install of docker-osx-dev"
   local readonly skip_dependencies=$1
   local readonly only_dependencies=$2
-  local remove_shared_folders=$3
+  local readonly remove_shared_folders=$3
   if test -z "$skip_dependencies" ; then
     install_dependencies
   fi
