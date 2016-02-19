@@ -344,11 +344,15 @@ function umount_vboxsf_mounted_folder {
 }
 
 #
+# Usage: check_for_shared_folders REMOVE_SHARED_FOLDERS
+#
 # Checks if the docker host has any VirtualBox shared folders. If so, prompt
 # the user if they would like to remove them, as they will void any benefits
-# from using rsync.
+# from using rsync. If AUTOREMOVE is true, the folders will be removed without
+# prompting the user.
 #
 function check_for_shared_folders {
+  local readonly remove_shared_folders="$1"
   local readonly vbox_shared_folders=$(find_vboxsf_mounted_folders)
 
   if [[ ! -z "$vbox_shared_folders" ]]; then
@@ -392,9 +396,13 @@ function is_boot2docker_running {
 }
 
 #
+# Usage: init_boot2docker REMOVE_SHARED_FOLDERS
+#
 # Initializes and starts up the Boot2Docker VM.
 #
 function init_boot2docker {
+  local readonly remove_shared_folders=$1
+
   if ! is_boot2docker_initialized; then
     log_info "Initializing Boot2Docker VM"
     boot2docker init
@@ -406,7 +414,7 @@ function init_boot2docker {
   fi
 
   configure_boot2docker
-  check_for_shared_folders
+  check_for_shared_folders "$remove_shared_folders"
 }
 
 ################################################################################
@@ -455,9 +463,13 @@ function configure_docker_machine {
 }
 
 #
+# Usage: init_docker_machine REMOVE_SHARED_FOLDERS
+#
 # Initializes and starts up the docker-machine VM.
 #
 function init_docker_machine {
+  local readonly remove_shared_folders=$1
+
   if ! is_docker_machine_running; then
     log_info "Initializing docker machine $DOCKER_MACHINE_NAME"
     docker-machine start "$DOCKER_MACHINE_NAME"
@@ -465,7 +477,7 @@ function init_docker_machine {
   eval "$(docker-machine env --shell bash $DOCKER_MACHINE_NAME)"
   configure_docker_machine
   if [[ $DOCKER_MACHINE_DRIVER_NAME == "virtualbox" ]]; then
-    check_for_shared_folders
+    check_for_shared_folders "$remove_shared_folders"
   fi
 }
 
@@ -483,14 +495,17 @@ function is_docker_machine_running {
 ################################################################################
 
 #
+# Usage: init_docker_host REMOVE_SHARED_FOLDERS
+#
 # Initializes a docker host
 # Initializes boot2docker, unless DOCKER_MACHINE_NAME is defined
 #
 function init_docker_host {
+  local readonly remove_shared_folders=$1
   if [[ -n "$DOCKER_MACHINE_NAME" ]]; then
-    init_docker_machine
+    init_docker_machine "$remove_shared_folders"
   else
-    init_boot2docker
+    init_boot2docker "$remove_shared_folders"
   fi
 }
 
@@ -1152,19 +1167,21 @@ function configure_includes {
 }
 
 #
+# Usage: sync REMOVE_SHARED_FOLDERS
+#
 # Runs the docker-osx-dev script to to sync files.
 #
 function sync {
   local readonly remove_shared_folders=$1
 
   log_info "Starting docker-osx-dev file syncing"
-  init_docker_host
+  init_docker_host "$remove_shared_folders"
   install_rsync_on_docker_host
   initial_sync
 }
 
 #
-# Usage: install [SKIP_DEPENDENCIES] [ONLY_DEPENDENCIES]
+# Usage: install [SKIP_DEPENDENCIES] [ONLY_DEPENDENCIES] [REMOVE_SHARED_FOLDERS]
 #
 # Installs the docker-osx-dev script, all of its dependencies, and configures
 # the environment.
@@ -1178,7 +1195,7 @@ function install {
     install_dependencies
   fi
   if test -z "$only_dependencies" ; then
-    init_docker_host
+    init_docker_host "$remove_shared_folders"
     install_rsync_on_docker_host
     add_docker_host
     add_environment_variables
