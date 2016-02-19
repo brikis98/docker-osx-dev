@@ -944,7 +944,7 @@ function instructions {
   echo -e "  -i, --ignore-file IGNORE_FILE\t\tRead in this ignore file and exclude any paths within it while syncing (see --exclude). Default: $DEFAULT_IGNORE_FILE"
   echo -e "      --only-dependencies\t\tDuring install, only install the homebrew dependencies. Useful if homebrew is needs to be run as a different user."
   echo -e "      --skip-dependencies\t\tDuring install, don't install the homebrew dependencies. Useful if homebrew is needs to be run as a different user."
-  echo -e "  -r, --remove-shared-folders \t\tAutomatically Virtualbox remove shared folders. Shared folders may void any performance benefits from using docker-osx-dev"
+  echo -e "  -r, --remove-shared-folders \t\tAutomatically remove Virtualbox shared folders. Shared folders may void any performance benefits from using docker-osx-dev"
   echo -e "  -l, --log-level LOG_LEVEL\t\tSpecify the logging level. One of: $LOG_LEVELS. Default: ${DEFAULT_LOG_LEVEL}"
   echo -e "  -h, --help\t\t\t\tPrint this help text and exit."
   echo -e
