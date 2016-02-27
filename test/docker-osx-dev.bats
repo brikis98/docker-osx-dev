@@ -506,3 +506,56 @@ esac
 
   rm_stubs
 }
+
+@test "brew_install should install things that fail existence_test" {
+  export -f stub
+  export BATS_TEST_DIRNAME
+
+  stub brew '
+case "$1" in
+  list)
+    exit 1
+    ;;
+  install)
+    echo brew $@
+    stub "$2" "echo $2"
+    ;;
+  *)
+    echo brew $@
+    ;;
+esac
+'
+
+  export PATH="$BATS_TEST_DIRNAME/stub:$PATH"
+
+  run brew_install bleh Bleh 'type bleh' false
+
+  assert_line "brew install bleh"
+
+  rm_stubs
+}
+
+@test "brew_install should not install things that pass existence_test" {
+  stub brew '
+case "$1" in
+  list)
+    if [[ "$2" == "bleh" ]]; then
+      echo "bleh"
+    else
+      exit 1
+    fi
+  *)
+    echo brew $@
+    ;;
+esac
+'
+
+  stub bleh 'echo bleh'
+  export PATH="$BATS_TEST_DIRNAME/stub:$PATH"
+
+  run brew_install bleh Bleh 'type bleh' false
+
+  refute_line "brew install bleh"
+
+  rm_stubs
+}

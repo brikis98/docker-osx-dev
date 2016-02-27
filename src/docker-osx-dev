@@ -669,26 +669,26 @@ function brew_update {
 }
 
 #
-# Usage: brew_install PACKAGE_NAME READABLE_NAME COMMAND_NAME USE_CASK
+# Usage: brew_install PACKAGE_NAME READABLE_NAME EXISTENCE_TEST USE_CASK
 #
 # Checks if PACKAGE_NAME is already installed by using brew as well as by
-# searching for COMMAND_NAME on the PATH and if it can't find it, uses brew to
+# running `eval EXISTENCE_TEST` and if it can't find it, uses brew to
 # install PACKAGE_NAME. If USE_CASK is set to true, uses brew cask
 # instead.
 #
 # Examples:
 #
-# brew_install virtualbox VirtualBox vboxwebsrv true
-#   Result: checks if brew cask already has virtualbox installed or vboxwebsrv
-#   is on the PATH, and if not, uses brew cask to install it.
+# brew_install virtualbox VirtualBox 'type vboxwebsrv' true
+#   Result: checks if brew cask already has virtualbox installed or
+#   `type vboxwebsrv` succeeds, and if not, uses brew cask to install it.
 #
 function brew_install {
   local readonly package_name="$1"
   local readonly readable_name="$2"
-  local readonly command_name="$3"
+  local readonly existence_test="$3"
   local readonly use_cask="$4"
 
-  if ! type "$command_name" > /dev/null 2>&1 ; then
+  if ! eval "$existence_test" > /dev/null 2>&1 ; then
     check_homebrew $readable_name
 
     local brew_command="brew"
@@ -707,13 +707,13 @@ function brew_install {
       # https://github.com/brikis98/docker-osx-dev/issues/124
       # Therefore, explicitly check that the dependency was installed before
       # proceeding.
-      if ! type "$command_name" > /dev/null 2>&1; then
+      if ! eval "$existence_test" > /dev/null 2>&1; then
         log_error "Failed to install dependency $readable_name. Check the log output above for reasons."
         exit 1
       fi
     fi
   else
-    log_warn "Found command $command_name, assuming $readable_name is already installed and skipping"
+    log_warn "Test \"$existence_test\" passed, assuming $readable_name is already installed and skipping"
   fi
 }
 
@@ -735,12 +735,18 @@ function check_homebrew {
 function install_dependencies {
   brew_update
 
-  brew_install "caskroom/cask/brew-cask" "Cask" "brew cask" false
-  brew_install "boot2docker" "Boot2Docker" "boot2docker" false
-  brew_install "docker-compose" "Docker Compose" "docker-compose" false
-  brew_install "docker-machine" "Docker Machine" "docker-machine" false
-  brew_install "fswatch" "fswatch" "fswatch" false
-  brew_install "coreutils" "GNU core utilities" "greadlink" false
+  log_info "Setting up Cask"
+  if ! brew tap Caskroom/cask; then
+    log_error "Failed to set up Cask. Check the log output above for reasons."
+    exit 1
+  fi
+
+  brew_install "caskroom/cask/brew-cask" "Cask" "brew cask list" false
+  brew_install "boot2docker" "Boot2Docker" "type boot2docker" false
+  brew_install "docker-compose" "Docker Compose" "type docker-compose" false
+  brew_install "docker-machine" "Docker Machine" "type docker-machine" false
+  brew_install "fswatch" "fswatch" "type fswatch" false
+  brew_install "coreutils" "GNU core utilities" "type greadlink" false
 }
 
 #
