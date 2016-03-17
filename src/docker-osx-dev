@@ -45,10 +45,10 @@ readonly BOOT2DOCKER_USER="docker"
 readonly DEFAULT_COMPOSE_FILE="docker-compose.yml"
 
 # Sync and watch constants
-readonly DEFAULT_PATHS_TO_SYNC="."
-readonly DEFAULT_EXCLUDES=".git"
-readonly DEFAULT_IGNORE_FILE=".dockerignore"
-readonly RSYNC_FLAGS="--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file -l"
+readonly DEFAULT_PATHS_TO_SYNC=${DEFAULT_PATHS_TO_SYNC:?"."}
+readonly DEFAULT_EXCLUDES=${DEFAULT_EXCLUDES:?".git"}
+readonly DEFAULT_IGNORE_FILE=${DEFAULT_IGNORE_FILE:?".dockerignore"}
+readonly RSYNC_FLAGS=${RSYNC_FLAGS:?"--archive --log-format 'Syncing %n: %i' --delete --omit-dir-times --inplace --whole-file -l"}
 
 # docker-osx-dev repo constants
 readonly RSYNC_BINARY_URL="https://github.com/brikis98/docker-osx-dev/blob/master/lib/rsync?raw=true"
