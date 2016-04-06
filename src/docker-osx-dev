@@ -736,7 +736,7 @@ function install_dependencies {
   brew_update
 
   log_info "Setting up Cask"
-  if ! brew tap Caskroom/cask; then
+  if ! brew tap caskroom/cask; then
     log_error "Failed to set up Cask. Check the log output above for reasons."
     exit 1
   fi
