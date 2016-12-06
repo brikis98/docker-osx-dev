@@ -1,0 +1,12 @@
+web:
+  extends:
+    file: docker-compose-base.yml
+    service: web
+  volumes:
+    - /host2:/guest2
+  links:
+    - db
+db:
+  extends:
+    file: docker-compose-base.yml
+    service: db

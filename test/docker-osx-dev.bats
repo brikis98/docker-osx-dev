@@ -128,6 +128,16 @@ load test_helper
   assert_equal "/host" "$PATHS_TO_SYNC"
 }
 
+@test "configure_paths_to_sync reads paths to sync from docker-compose file that uses extends" {
+  configure_paths_to_sync "test/resources/docker-compose-extends.yml" > /dev/null
+  assert_equal "/host /host2" "$PATHS_TO_SYNC"
+}
+
+@test "configure_paths_to_sync reads paths to sync from docker-compose file that uses named volumes" {
+  configure_paths_to_sync "test/resources/docker-compose-named-volumes.yml" > /dev/null
+  assert_equal "/host" "$PATHS_TO_SYNC"
+}
+
 @test "configure_paths_to_sync with one path from command line" {
   configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo" > /dev/null
   assert_equal "/foo" "$PATHS_TO_SYNC"
