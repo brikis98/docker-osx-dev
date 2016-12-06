@@ -994,9 +994,9 @@ function load_paths_from_docker_compose {
   local readonly yaml_file_path="$1"
   local paths=()
 
-  local yaml_file_param=""
-  if [ ! -z "${yaml_file_path}" ]; then
-    yaml_file_param="-f ${yaml_file_path}"
+  local docker_compose_param_yaml_file=""
+  if [[ ! -z "${yaml_file_path}" ]]; then
+    docker_compose_param_yaml_file="-f ${yaml_file_path}"
   fi
 
   local in_volumes_block=false
@@ -1016,7 +1016,7 @@ function load_paths_from_docker_compose {
         in_volumes_block=true
       fi
     fi
-  done < <(docker-compose ${yaml_file_param} config 2> /dev/null)
+  done < <(docker-compose ${docker_compose_param_yaml_file} config 2> /dev/null)
   # Do not use a pipe to prevent a subshell
 
   echo "${paths[@]}"
