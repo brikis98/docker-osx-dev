@@ -999,6 +999,24 @@ function load_paths_from_docker_compose {
     docker_compose_param_yaml_file="-f ${yaml_file_path}"
   fi
 
+  # Parse docker-compose YAML configuration
+  # Here is an example of output sent by docker-compose config:
+  # networks: {}
+  # services:
+  #   db:
+  #     image: baz/blah
+  #     network_mode: bridge
+  #   web:
+  #     image: foo/bar
+  #     links:
+  #     - db
+  #     network_mode: bridge
+  #     ports:
+  #     - 3000:3000
+  #     volumes:
+  #     - /host:/guest:rw
+  # version: '2.0'
+  # volumes: {}
   local in_volumes_block=false
   local line=""
   while read line; do
