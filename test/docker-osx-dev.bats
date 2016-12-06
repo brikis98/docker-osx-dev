@@ -128,6 +128,16 @@ load test_helper
   assert_equal "/host" "$PATHS_TO_SYNC"
 }
 
+@test "configure_paths_to_sync reads paths to sync from docker-compose file that uses extends" {
+  configure_paths_to_sync "test/resources/docker-compose-extends.yml" > /dev/null
+  assert_equal "/host /host2" "$PATHS_TO_SYNC"
+}
+
+@test "configure_paths_to_sync reads paths to sync from docker-compose file that uses named volumes" {
+  configure_paths_to_sync "test/resources/docker-compose-named-volumes.yml" > /dev/null
+  assert_equal "/host" "$PATHS_TO_SYNC"
+}
+
 @test "configure_paths_to_sync with one path from command line" {
   configure_paths_to_sync "test/resources/docker-compose-no-volumes.yml" "/foo" > /dev/null
   assert_equal "/foo" "$PATHS_TO_SYNC"
@@ -285,7 +295,7 @@ load test_helper
 
 @test "load_paths_from_docker_compose handles docker compose files with multiple containers and multiple volumes" {
   run load_paths_from_docker_compose "test/resources/docker-compose-multiple-containers-with-volumes.yml"
-  assert_output "/host1 /host2 /foo/bar /"
+  assert_output "/ /foo/bar /host1 /host2" # docker-compose config sorts services alphabetically
 }
 
 @test "load_paths_from_docker_compose handles docker compose files with non-mounted volumes" {

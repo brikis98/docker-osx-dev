@@ -992,28 +992,50 @@ function instructions {
 #
 function load_paths_from_docker_compose {
   local readonly yaml_file_path="$1"
-  local in_volumes_block=false
   local paths=()
 
-  if [[ -f "$yaml_file_path" ]]; then
-    local line=""
-    while read line; do
-      if $in_volumes_block; then
-        if [[ "${line:0:2}" = "- " ]]; then
-          local readonly path=$(echo $line | sed -ne "s/- \([^:]*\):.*$/\1/p" | sed -e 's/^["'\'']//'  -e 's/["'\'']$//')
-          if [ ! -z "$path" ]; then
-            paths+=("$path")
-          fi
-        else
-          in_volumes_block=false
+  local docker_compose_param_yaml_file=""
+  if [[ ! -z "${yaml_file_path}" ]]; then
+    docker_compose_param_yaml_file="-f ${yaml_file_path}"
+  fi
+
+  # Parse docker-compose YAML configuration
+  # Here is an example of output sent by docker-compose config:
+  # networks: {}
+  # services:
+  #   db:
+  #     image: baz/blah
+  #     network_mode: bridge
+  #   web:
+  #     image: foo/bar
+  #     links:
+  #     - db
+  #     network_mode: bridge
+  #     ports:
+  #     - 3000:3000
+  #     volumes:
+  #     - /host:/guest:rw
+  # version: '2.0'
+  # volumes: {}
+  local in_volumes_block=false
+  local line=""
+  while read line; do
+    if $in_volumes_block; then
+      if [[ "${line:0:2}" = "- " ]]; then
+        local readonly path=$(echo $line | sed -ne "s/- \(\/[^:]*\):.*$/\1/p")
+        if [ ! -z "$path" ]; then
+          paths+=("$path")
         fi
       else
-        if [[ "$line" = "volumes:" ]]; then
-          in_volumes_block=true
-        fi
+        in_volumes_block=false
       fi
-    done < "$yaml_file_path"
-  fi
+    else
+      if [[ "$line" = "volumes:" ]]; then
+        in_volumes_block=true
+      fi
+    fi
+  done < <(docker-compose ${docker_compose_param_yaml_file} config 2> /dev/null)
+  # Do not use a pipe to prevent a subshell
 
   echo "${paths[@]}"
 }
