@@ -992,28 +992,32 @@ function instructions {
 #
 function load_paths_from_docker_compose {
   local readonly yaml_file_path="$1"
-  local in_volumes_block=false
   local paths=()
 
-  if [[ -f "$yaml_file_path" ]]; then
-    local line=""
-    while read line; do
-      if $in_volumes_block; then
-        if [[ "${line:0:2}" = "- " ]]; then
-          local readonly path=$(echo $line | sed -ne "s/- \([^:]*\):.*$/\1/p" | sed -e 's/^["'\'']//'  -e 's/["'\'']$//')
-          if [ ! -z "$path" ]; then
-            paths+=("$path")
-          fi
-        else
-          in_volumes_block=false
+  local yaml_file_param=""
+  if [ ! -z "${yaml_file_path}" ]; then
+    yaml_file_param="-f ${yaml_file_path}"
+  fi
+
+  local in_volumes_block=false
+  local line=""
+  while read line; do
+    if $in_volumes_block; then
+      if [[ "${line:0:2}" = "- " ]]; then
+        local readonly path=$(echo $line | sed -ne "s/- \(\/[^:]*\):.*$/\1/p")
+        if [ ! -z "$path" ]; then
+          paths+=("$path")
         fi
       else
-        if [[ "$line" = "volumes:" ]]; then
-          in_volumes_block=true
-        fi
+        in_volumes_block=false
       fi
-    done < "$yaml_file_path"
-  fi
+    else
+      if [[ "$line" = "volumes:" ]]; then
+        in_volumes_block=true
+      fi
+    fi
+  done < <(docker-compose ${yaml_file_param} config 2> /dev/null)
+  # Do not use a pipe to prevent a subshell
 
   echo "${paths[@]}"
 }

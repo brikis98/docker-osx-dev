@@ -285,7 +285,7 @@ load test_helper
 
 @test "load_paths_from_docker_compose handles docker compose files with multiple containers and multiple volumes" {
   run load_paths_from_docker_compose "test/resources/docker-compose-multiple-containers-with-volumes.yml"
-  assert_output "/host1 /host2 /foo/bar /"
+  assert_output "/ /foo/bar /host1 /host2" # docker-compose config sorts services alphabetically
 }
 
 @test "load_paths_from_docker_compose handles docker compose files with non-mounted volumes" {
