@@ -1,5 +1,9 @@
 # A productive development environment with Docker on OS X
 
+**UPDATE, March 4, 2018**: This project is no longer actively updated. The [Docker for Mac app](https://www.docker.com/docker-mac) 
+has made significant improvements in terms of mounted volume performance and file watching, so `docker-osx-dev` is no longer necessary.
+
+
 [Docker](https://www.docker.com/) and [Boot2Docker](http://boot2docker.io/) are
 awesome for running containers on OS X, but if you try to use them to do
 iterative development by mounting a source folder from OS X into your Docker 
